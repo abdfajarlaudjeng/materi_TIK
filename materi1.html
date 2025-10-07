@@ -1208,21 +1208,6 @@
 
         // Enhanced PDF Content Generator
         function generateDetailedPDFContent(title, category) {
-            const material = sampleMaterials.find(m => m.title.includes(title.split(' ')[0]));
-            const detailContent = material ? material.detailedContent : null;
-            
-            let topicsContent = '';
-            if (detailContent && detailContent.topics) {
-                topicsContent = detailContent.topics.map((topic, index) => `
-${topic.title}
-${topic.content}
-
-Contoh:
-${topic.examples.map(ex => `- ${ex}`).join('\n')}
-
-`).join('\n');
-            }
-
             const content = `%PDF-1.4
 1 0 obj
 <<
@@ -1343,6 +1328,8 @@ startxref
 
         // Original PDF Content Generator (fallback)
         function generatePDFContent(title, subtitle) {
+            const content = `%PDF-1.4
+1 0 obj
 <<
 /Type /Catalog
 /Pages 2 0 R
@@ -1431,9 +1418,10 @@ startxref
 
         // Initialize the application
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('Initializing application...');
             loadMaterials();
             loadAssignments();
-            loadCategory(currentCategory);
+            changeCategory();
         });
 
         // Tab Management
@@ -1772,16 +1760,17 @@ startxref
         // File Upload Management
         function handleDragOver(e) {
             e.preventDefault();
+            e.currentTarget.classList.add('drag-over');
         }
 
         function handleDragEnter(e) {
             e.preventDefault();
-            e.currentTarget.classList.add('dragover');
+            e.currentTarget.classList.add('drag-over');
         }
 
         function handleDragLeave(e) {
             if (!e.currentTarget.contains(e.relatedTarget)) {
-                e.currentTarget.classList.remove('dragover');
+                e.currentTarget.classList.remove('drag-over');
             }
         }
 
@@ -1935,16 +1924,24 @@ startxref
         // Drag & Drop Game Functions
         function changeCategory() {
             const select = document.getElementById('category-select');
-            currentCategory = select.value;
-            resetGame();
-            loadCategory(currentCategory);
+            if (select) {
+                currentCategory = select.value;
+                resetGame();
+                loadCategory(currentCategory);
+            }
         }
 
         function loadCategory(category) {
             const material = materials[category];
+            if (!material) return;
+            
             totalQuestions = material.items.length;
             
-            document.getElementById('items-title').textContent = material.title;
+            const itemsTitle = document.getElementById('items-title');
+            if (itemsTitle) {
+                itemsTitle.textContent = material.title;
+            }
+            
             loadDragItems(material.items);
             loadDropZones(material.zones);
             updateProgress();
@@ -1988,10 +1985,10 @@ startxref
                     <div class="text-4xl text-gray-300">📋</div>
                 `;
                 
-                div.addEventListener('dragover', handleDragOver);
+                div.addEventListener('dragover', handleGameDragOver);
                 div.addEventListener('drop', handleDrop);
-                div.addEventListener('dragenter', handleDragEnter);
-                div.addEventListener('dragleave', handleDragLeave);
+                div.addEventListener('dragenter', handleGameDragEnter);
+                div.addEventListener('dragleave', handleGameDragLeave);
                 
                 container.appendChild(div);
             });
@@ -2007,6 +2004,23 @@ startxref
 
         function handleDragEnd(e) {
             e.target.classList.remove('dragging');
+        }
+
+        // Game drag and drop handlers
+        function handleGameDragOver(e) {
+            e.preventDefault();
+            e.currentTarget.classList.add('drag-over');
+        }
+
+        function handleGameDragEnter(e) {
+            e.preventDefault();
+            e.currentTarget.classList.add('drag-over');
+        }
+
+        function handleGameDragLeave(e) {
+            if (!e.currentTarget.contains(e.relatedTarget)) {
+                e.currentTarget.classList.remove('drag-over');
+            }
         }
 
         function handleDrop(e) {
@@ -2174,5 +2188,5 @@ startxref
             }
         });
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'98aa13a337c9ce73',t:'MTc1OTgwNTI3Ny4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'98aa1a8d87d75ffa',t:'MTc1OTgwNTU2MC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
