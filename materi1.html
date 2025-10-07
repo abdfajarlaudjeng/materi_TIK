@@ -1,0 +1,2178 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Pembelajaran Informatika SMP</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            box-sizing: border-box;
+        }
+        
+        .drag-item {
+            cursor: grab;
+            transition: all 0.3s ease;
+            user-select: none;
+        }
+        
+        .drag-item:hover {
+            transform: translateY(-3px) scale(1.05);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+        }
+        
+        .drag-item.dragging {
+            opacity: 0.6;
+            transform: rotate(5deg) scale(1.1);
+            z-index: 1000;
+        }
+        
+        .drop-zone {
+            min-height: 120px;
+            border: 3px dashed #d1d5db;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        
+        .drop-zone.drag-over {
+            border-color: #10b981;
+            background-color: #ecfdf5;
+            border-style: solid;
+            transform: scale(1.02);
+        }
+        
+        .drop-zone.correct {
+            border-color: #10b981;
+            background-color: #d1fae5;
+            animation: correctPulse 0.6s ease-out;
+        }
+        
+        .drop-zone.incorrect {
+            border-color: #ef4444;
+            background-color: #fee2e2;
+            animation: shake 0.5s ease-out;
+        }
+        
+        @keyframes correctPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+        
+        .item-icon {
+            font-size: 3rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .score-animation {
+            animation: scoreUp 0.8s ease-out;
+        }
+        
+        @keyframes scoreUp {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); color: #10b981; }
+            100% { transform: scale(1); }
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .file-drop-zone {
+            border: 2px dashed #d1d5db;
+            transition: all 0.3s ease;
+        }
+
+        .file-drop-zone.dragover {
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+        }
+
+        .loading {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex justify-between items-center py-4">
+                <div class="flex items-center space-x-4">
+                    <h1 class="text-2xl font-bold text-gray-800">🖥️ Sistem Pembelajaran Informatika</h1>
+                </div>
+                <div class="flex space-x-4">
+                    <button onclick="showTab('materials')" id="tab-materials" class="tab-btn bg-blue-500 text-white px-4 py-2 rounded-lg font-semibold">
+                        📚 Materi Ajar
+                    </button>
+                    <button onclick="showTab('assignments')" id="tab-assignments" class="tab-btn bg-gray-300 text-gray-700 px-4 py-2 rounded-lg font-semibold">
+                        📝 Upload Tugas
+                    </button>
+                    <button onclick="showTab('game')" id="tab-game" class="tab-btn bg-gray-300 text-gray-700 px-4 py-2 rounded-lg font-semibold">
+                        🎮 Drag & Drop
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto p-4">
+        <!-- Student Form (Always visible) -->
+        <div id="student-form" class="bg-white rounded-xl shadow-lg p-6 mb-6">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4 text-center">👤 Data Siswa</h2>
+            <div class="grid md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Nama Lengkap</label>
+                    <input type="text" id="student-name" placeholder="Masukkan nama lengkap" 
+                           class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">NISN</label>
+                    <input type="text" id="student-nisn" placeholder="Masukkan NISN" 
+                           class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Kelas</label>
+                    <select id="student-class" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none">
+                        <option value="">Pilih Kelas</option>
+                        <option value="VII A">VII A</option>
+                        <option value="VII B">VII B</option>
+                        <option value="VII C">VII C</option>
+                        <option value="VIII A">VIII A</option>
+                        <option value="VIII B">VIII B</option>
+                        <option value="VIII C">VIII C</option>
+                        <option value="IX A">IX A</option>
+                        <option value="IX B">IX B</option>
+                        <option value="IX C">IX C</option>
+                    </select>
+                </div>
+            </div>
+            <div class="text-center mt-4">
+                <button onclick="saveStudentData()" 
+                        class="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg font-semibold transition-colors">
+                    💾 Simpan Data Siswa
+                </button>
+            </div>
+            <div id="student-info" class="hidden mt-4 p-4 bg-blue-50 rounded-lg">
+                <p class="text-center text-blue-800">
+                    <strong>Selamat datang, <span id="display-name"></span>!</strong><br>
+                    <small>Kelas: <span id="display-class"></span> | NISN: <span id="display-nisn"></span></small>
+                </p>
+            </div>
+        </div>
+
+        <!-- Materials Tab -->
+        <div id="materials-content" class="tab-content active">
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 space-y-4 md:space-y-0">
+                    <h2 class="text-2xl font-bold text-gray-800">📚 Materi Ajar Informatika</h2>
+                    <div class="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-4">
+                        <input type="text" id="search-materials" placeholder="🔍 Cari materi..." 
+                               class="px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                               onkeyup="filterMaterials()">
+                        <select id="category-filter" onchange="filterMaterials()" 
+                                class="px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none">
+                            <option value="">Semua Kategori</option>
+                            <option value="Hardware">Hardware</option>
+                            <option value="Software">Software</option>
+                            <option value="Jaringan">Jaringan</option>
+                            <option value="Algoritma">Algoritma</option>
+                            <option value="Keamanan">Keamanan</option>
+                        </select>
+                        <button onclick="loadMaterials()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold whitespace-nowrap">
+                            🔄 Refresh Data
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6" id="materials-grid">
+                    <!-- Materials will be loaded here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Assignments Tab -->
+        <div id="assignments-content" class="tab-content">
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">📝 Upload Tugas</h2>
+                
+                <!-- Assignment Selection -->
+                <div class="mb-6">
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Pilih Tugas</label>
+                    <select id="assignment-select" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none">
+                        <option value="">Pilih tugas yang akan dikumpulkan</option>
+                    </select>
+                </div>
+
+                <!-- File Upload Area -->
+                <div class="file-drop-zone bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl p-8 text-center mb-6" 
+                     ondrop="handleFileDrop(event)" ondragover="handleDragOver(event)" ondragenter="handleDragEnter(event)" ondragleave="handleDragLeave(event)">
+                    <div class="text-6xl text-gray-400 mb-4">📁</div>
+                    <h3 class="text-xl font-semibold text-gray-700 mb-2">Drop file di sini atau klik untuk upload</h3>
+                    <p class="text-gray-500 mb-4">Mendukung: PDF, DOC, DOCX, JPG, PNG, ZIP (Max: 10MB)</p>
+                    <input type="file" id="file-input" class="hidden" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.zip" onchange="handleFileSelect(event)">
+                    <button onclick="document.getElementById('file-input').click()" 
+                            class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold">
+                        📎 Pilih File
+                    </button>
+                </div>
+
+                <!-- Selected File Info -->
+                <div id="file-info" class="hidden bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <div class="text-2xl">📄</div>
+                            <div>
+                                <div class="font-semibold text-gray-800" id="file-name"></div>
+                                <div class="text-sm text-gray-600" id="file-size"></div>
+                            </div>
+                        </div>
+                        <button onclick="removeFile()" class="text-red-500 hover:text-red-700">
+                            ❌
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Upload Button -->
+                <div class="text-center">
+                    <button onclick="uploadAssignment()" id="upload-btn" disabled
+                            class="bg-green-500 hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white px-8 py-3 rounded-lg font-semibold text-lg">
+                        📤 Upload Tugas
+                    </button>
+                </div>
+
+                <!-- Upload History -->
+                <div class="mt-8">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">📋 Riwayat Upload</h3>
+                    <div id="upload-history" class="space-y-3">
+                        <!-- Upload history will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Game Tab -->
+        <div id="game-content" class="tab-content">
+            <!-- Game Controls -->
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <div class="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
+                    <div class="flex items-center space-x-4">
+                        <label class="text-lg font-semibold text-gray-700">Pilih Materi:</label>
+                        <select id="category-select" onchange="changeCategory()" 
+                                class="bg-blue-50 border-2 border-blue-200 rounded-lg px-4 py-2 text-lg font-medium focus:outline-none focus:border-blue-500">
+                            <option value="hardware">🔧 Hardware Komputer</option>
+                            <option value="software">💿 Software Komputer</option>
+                            <option value="network">🌐 Jaringan Komputer</option>
+                            <option value="algorithm">🧮 Algoritma & Pemrograman</option>
+                        </select>
+                    </div>
+                    
+                    <div class="flex items-center space-x-4">
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-green-600" id="score">0</div>
+                            <div class="text-sm text-gray-600">Skor</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-blue-600" id="total">0/0</div>
+                            <div class="text-sm text-gray-600">Progress</div>
+                        </div>
+                        <button onclick="resetGame()" 
+                                class="bg-red-500 hover:bg-red-600 text-white px-6 py-2 rounded-lg font-semibold transition-colors">
+                            🔄 Reset
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid lg:grid-cols-12 gap-6">
+                <!-- Left Panel - Drag Items -->
+                <div class="lg:col-span-4">
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">
+                            <span id="items-title">🔧 Komponen Hardware</span>
+                        </h2>
+                        
+                        <div id="drag-items" class="grid grid-cols-2 gap-4">
+                            <!-- Items will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Panel - Drop Zones -->
+                <div class="lg:col-span-8">
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">
+                            <span id="zones-title">🎯 Cocokkan dengan Kategori</span>
+                        </h2>
+                        
+                        <div id="drop-zones" class="grid md:grid-cols-2 gap-6">
+                            <!-- Drop zones will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification -->
+    <div id="notification" class="notification bg-white rounded-lg shadow-lg p-4 border-l-4">
+        <div class="flex items-center space-x-3">
+            <div id="notification-icon" class="text-2xl"></div>
+            <div>
+                <div id="notification-title" class="font-semibold"></div>
+                <div id="notification-message" class="text-sm text-gray-600"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success Modal -->
+    <div id="success-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+        <div class="bg-white rounded-2xl p-8 max-w-md mx-4 text-center">
+            <div class="text-6xl mb-4">🎉</div>
+            <h3 class="text-2xl font-bold text-gray-800 mb-4">Selamat!</h3>
+            <p class="text-gray-600 mb-6">Kamu berhasil menyelesaikan semua soal dengan skor <span id="final-score" class="font-bold text-green-600"></span>!</p>
+            <div class="flex space-x-3 justify-center">
+                <button onclick="closeSuccessModal()" class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-6 py-2 rounded-lg">
+                    Tutup
+                </button>
+                <button onclick="resetGame(); closeSuccessModal();" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg">
+                    Main Lagi
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let currentCategory = 'hardware';
+        let score = 0;
+        let correctAnswers = 0;
+        let totalQuestions = 0;
+        let usedItems = new Set();
+        let studentData = null;
+        let gameStartTime = null;
+        let selectedFile = null;
+
+        // Google Sheets configuration
+        const SHEET_ID = '1RpGjx7rSTpNH4Ndvs7qeeKwo0-lcFzogZxVGHLsXraM';
+        const API_KEY = 'YOUR_API_KEY'; // In real implementation, use proper API key
+
+        // Comprehensive materials data with detailed content and images
+        const sampleMaterials = [
+            {
+                id: 1,
+                title: "Pengenalan Hardware Komputer",
+                description: "Materi lengkap tentang komponen-komponen hardware komputer seperti CPU, RAM, Storage, Motherboard, dan perangkat input/output beserta fungsi dan cara kerjanya",
+                category: "Hardware",
+                type: "PDF",
+                content: generateDetailedPDFContent("Hardware Komputer", "hardware"),
+                uploadDate: "2024-01-15",
+                size: "5.8 MB",
+                chapters: ["Pengertian Hardware", "Komponen Utama", "Perangkat Input/Output", "Cara Kerja Sistem", "Perawatan Hardware"],
+                image: generateHardwareImage(),
+                detailedContent: {
+                    overview: "Hardware komputer adalah komponen fisik yang dapat dilihat dan disentuh dari sebuah sistem komputer. Hardware merupakan fondasi dari setiap sistem komputer yang berfungsi untuk menjalankan perangkat lunak (software).",
+                    topics: [
+                        {
+                            title: "1. Central Processing Unit (CPU)",
+                            content: "CPU adalah otak komputer yang bertugas memproses semua instruksi dan perhitungan. CPU terdiri dari Control Unit (CU) dan Arithmetic Logic Unit (ALU).",
+                            examples: ["Intel Core i5/i7", "AMD Ryzen", "ARM Processor"]
+                        },
+                        {
+                            title: "2. Memory (RAM)",
+                            content: "Random Access Memory adalah tempat penyimpanan sementara data dan program yang sedang dijalankan. Semakin besar RAM, semakin banyak program yang dapat dijalankan bersamaan.",
+                            examples: ["DDR4 8GB", "DDR5 16GB", "LPDDR4X untuk laptop"]
+                        },
+                        {
+                            title: "3. Storage (Penyimpanan)",
+                            content: "Perangkat penyimpanan permanen untuk menyimpan data dan program. Terdiri dari HDD (Hard Disk Drive) dan SSD (Solid State Drive).",
+                            examples: ["HDD 1TB", "SSD 512GB", "NVMe M.2 SSD"]
+                        },
+                        {
+                            title: "4. Motherboard",
+                            content: "Papan sirkuit utama yang menghubungkan semua komponen hardware. Motherboard memiliki slot untuk CPU, RAM, kartu grafis, dan konektor lainnya.",
+                            examples: ["ATX Motherboard", "Micro-ATX", "Mini-ITX"]
+                        }
+                    ]
+                }
+            },
+            {
+                id: 2,
+                title: "Sistem Operasi Windows",
+                description: "Panduan komprehensif penggunaan sistem operasi Windows, mulai dari instalasi, konfigurasi, fitur-fitur utama, hingga troubleshooting masalah umum",
+                category: "Software",
+                type: "PDF",
+                content: generateDetailedPDFContent("Sistem Operasi Windows", "windows"),
+                uploadDate: "2024-01-16",
+                size: "6.4 MB",
+                chapters: ["Pengenalan Windows", "Desktop & Taskbar", "File Explorer", "Control Panel", "Windows Security"],
+                image: generateWindowsImage(),
+                detailedContent: {
+                    overview: "Windows adalah sistem operasi yang dikembangkan oleh Microsoft. Sistem operasi ini menyediakan antarmuka grafis (GUI) yang memudahkan pengguna untuk berinteraksi dengan komputer.",
+                    topics: [
+                        {
+                            title: "1. Desktop dan Taskbar",
+                            content: "Desktop adalah layar utama Windows yang menampilkan wallpaper dan ikon. Taskbar berisi Start Menu, ikon aplikasi yang sedang berjalan, dan system tray.",
+                            examples: ["Start Menu", "System Tray", "Quick Access Toolbar"]
+                        },
+                        {
+                            title: "2. File Explorer",
+                            content: "Aplikasi untuk mengelola file dan folder. File Explorer memungkinkan pengguna untuk membuat, menghapus, memindahkan, dan mengorganisir file.",
+                            examples: ["This PC", "Quick Access", "Libraries", "Network"]
+                        },
+                        {
+                            title: "3. Control Panel & Settings",
+                            content: "Pusat konfigurasi sistem Windows. Control Panel menyediakan akses ke pengaturan sistem, perangkat keras, dan software.",
+                            examples: ["System Settings", "Device Manager", "Programs & Features"]
+                        },
+                        {
+                            title: "4. Windows Security",
+                            content: "Fitur keamanan bawaan Windows yang melindungi komputer dari virus, malware, dan ancaman keamanan lainnya.",
+                            examples: ["Windows Defender", "Firewall", "User Account Control"]
+                        }
+                    ]
+                }
+            },
+            {
+                id: 3,
+                title: "Jaringan Komputer Dasar",
+                description: "Konsep fundamental jaringan komputer, topologi jaringan, protokol komunikasi, cara kerja internet, dan konfigurasi jaringan sederhana",
+                category: "Jaringan",
+                type: "PDF",
+                content: generateDetailedPDFContent("Jaringan Komputer", "network"),
+                uploadDate: "2024-01-17",
+                size: "7.2 MB",
+                chapters: ["Konsep Jaringan", "Topologi Jaringan", "Protokol TCP/IP", "Internet & WWW", "Keamanan Jaringan"],
+                image: generateNetworkImage(),
+                detailedContent: {
+                    overview: "Jaringan komputer adalah kumpulan komputer dan perangkat lain yang terhubung untuk berbagi sumber daya, data, dan komunikasi. Jaringan memungkinkan komputer untuk saling berkomunikasi dan berbagi informasi.",
+                    topics: [
+                        {
+                            title: "1. Topologi Jaringan",
+                            content: "Topologi adalah cara perangkat dalam jaringan terhubung satu sama lain. Setiap topologi memiliki kelebihan dan kekurangan masing-masing.",
+                            examples: ["Star Topology", "Bus Topology", "Ring Topology", "Mesh Topology"]
+                        },
+                        {
+                            title: "2. Protokol TCP/IP",
+                            content: "TCP/IP adalah protokol komunikasi standar internet. TCP mengatur pengiriman data, sedangkan IP mengatur alamat dan routing data.",
+                            examples: ["IP Address", "Subnet Mask", "Gateway", "DNS"]
+                        },
+                        {
+                            title: "3. Perangkat Jaringan",
+                            content: "Perangkat keras yang digunakan untuk membangun dan mengelola jaringan komputer.",
+                            examples: ["Router", "Switch", "Hub", "Access Point", "Modem"]
+                        },
+                        {
+                            title: "4. Internet dan World Wide Web",
+                            content: "Internet adalah jaringan global yang menghubungkan jutaan komputer. WWW adalah layanan yang berjalan di atas internet untuk berbagi informasi.",
+                            examples: ["HTTP/HTTPS", "Domain Name", "Web Browser", "Search Engine"]
+                        }
+                    ]
+                }
+            },
+            {
+                id: 4,
+                title: "Algoritma dan Pemrograman",
+                description: "Dasar-dasar algoritma, logika pemrograman, flowchart, pseudocode, dan pengenalan bahasa pemrograman untuk pemula",
+                category: "Algoritma",
+                type: "PDF",
+                content: generateDetailedPDFContent("Algoritma Pemrograman", "algorithm"),
+                uploadDate: "2024-01-18",
+                size: "8.1 MB",
+                chapters: ["Konsep Algoritma", "Flowchart", "Pseudocode", "Struktur Data", "Bahasa Pemrograman"],
+                image: generateAlgorithmImage(),
+                detailedContent: {
+                    overview: "Algoritma adalah langkah-langkah sistematis untuk menyelesaikan suatu masalah. Pemrograman adalah implementasi algoritma menggunakan bahasa pemrograman tertentu.",
+                    topics: [
+                        {
+                            title: "1. Konsep Dasar Algoritma",
+                            content: "Algoritma harus memiliki sifat: definiteness (jelas), finiteness (terbatas), input, output, dan effectiveness (efektif).",
+                            examples: ["Algoritma Pencarian", "Algoritma Pengurutan", "Algoritma Matematika"]
+                        },
+                        {
+                            title: "2. Flowchart",
+                            content: "Diagram alir yang menggambarkan langkah-langkah algoritma secara visual menggunakan simbol-simbol standar.",
+                            examples: ["Start/End Symbol", "Process Symbol", "Decision Symbol", "Input/Output Symbol"]
+                        },
+                        {
+                            title: "3. Struktur Kontrol",
+                            content: "Struktur yang mengatur alur eksekusi program: sequence (berurutan), selection (pemilihan), dan iteration (perulangan).",
+                            examples: ["If-Then-Else", "For Loop", "While Loop", "Switch-Case"]
+                        },
+                        {
+                            title: "4. Tipe Data dan Variabel",
+                            content: "Tipe data menentukan jenis nilai yang dapat disimpan dalam variabel. Variabel adalah tempat penyimpanan data dalam program.",
+                            examples: ["Integer", "String", "Boolean", "Array", "Object"]
+                        }
+                    ]
+                }
+            },
+            {
+                id: 5,
+                title: "Microsoft Office Word",
+                description: "Tutorial komprehensif Microsoft Word: pembuatan dokumen, formatting teks, tabel, gambar, mail merge, dan fitur-fitur lanjutan untuk produktivitas",
+                category: "Software",
+                type: "PDF",
+                content: generateDetailedPDFContent("Microsoft Word", "word"),
+                uploadDate: "2024-01-19",
+                size: "9.3 MB",
+                chapters: ["Interface Word", "Formatting Teks", "Tabel & Gambar", "Mail Merge", "Template & Styles"],
+                image: generateWordImage(),
+                detailedContent: {
+                    overview: "Microsoft Word adalah aplikasi pengolah kata yang paling populer untuk membuat, mengedit, dan memformat dokumen teks. Word menyediakan berbagai fitur untuk membuat dokumen profesional.",
+                    topics: [
+                        {
+                            title: "1. Interface dan Ribbon",
+                            content: "Interface Word terdiri dari Ribbon (pita menu), Quick Access Toolbar, dan area dokumen. Ribbon berisi tab-tab dengan berbagai perintah.",
+                            examples: ["Home Tab", "Insert Tab", "Design Tab", "Layout Tab", "Review Tab"]
+                        },
+                        {
+                            title: "2. Formatting Teks",
+                            content: "Mengatur tampilan teks dengan mengubah font, ukuran, warna, alignment, dan efek khusus untuk membuat dokumen yang menarik.",
+                            examples: ["Bold, Italic, Underline", "Font Family & Size", "Text Color", "Paragraph Alignment"]
+                        },
+                        {
+                            title: "3. Tabel dan Gambar",
+                            content: "Menyisipkan dan memformat tabel untuk mengorganisir data, serta menambahkan gambar dan grafik untuk memperkaya dokumen.",
+                            examples: ["Insert Table", "Table Design", "Insert Pictures", "SmartArt Graphics"]
+                        },
+                        {
+                            title: "4. Fitur Lanjutan",
+                            content: "Fitur-fitur canggih seperti Mail Merge, Table of Contents, Headers & Footers, dan Track Changes untuk dokumen profesional.",
+                            examples: ["Mail Merge", "Table of Contents", "Headers & Footers", "Track Changes"]
+                        }
+                    ]
+                }
+            },
+            {
+                id: 6,
+                title: "Keamanan Cyber dan Digital",
+                description: "Panduan lengkap keamanan digital: jenis-jenis ancaman cyber, cara melindungi data pribadi, password security, dan praktik browsing yang aman",
+                category: "Keamanan",
+                type: "PDF",
+                content: generateDetailedPDFContent("Keamanan Cyber", "security"),
+                uploadDate: "2024-01-20",
+                size: "6.7 MB",
+                chapters: ["Ancaman Cyber", "Password Security", "Safe Browsing", "Data Protection", "Social Engineering"],
+                image: generateSecurityImage(),
+                detailedContent: {
+                    overview: "Keamanan cyber adalah praktik melindungi sistem, jaringan, dan data dari serangan digital. Dengan meningkatnya penggunaan teknologi, kesadaran akan keamanan cyber menjadi sangat penting.",
+                    topics: [
+                        {
+                            title: "1. Jenis Ancaman Cyber",
+                            content: "Berbagai jenis ancaman yang dapat merusak sistem komputer dan mencuri data pribadi pengguna.",
+                            examples: ["Virus & Malware", "Phishing", "Ransomware", "Spyware", "Trojan Horse"]
+                        },
+                        {
+                            title: "2. Password Security",
+                            content: "Cara membuat dan mengelola password yang kuat untuk melindungi akun online dari akses yang tidak sah.",
+                            examples: ["Strong Password", "Two-Factor Authentication", "Password Manager", "Regular Updates"]
+                        },
+                        {
+                            title: "3. Safe Browsing",
+                            content: "Praktik browsing internet yang aman untuk menghindari situs berbahaya dan melindungi informasi pribadi.",
+                            examples: ["HTTPS Websites", "Avoid Suspicious Links", "Update Browser", "Use VPN"]
+                        },
+                        {
+                            title: "4. Social Engineering",
+                            content: "Teknik manipulasi psikologis yang digunakan penyerang untuk mendapatkan informasi rahasia dari korban.",
+                            examples: ["Phishing Emails", "Fake Tech Support", "Pretexting", "Baiting"]
+                        }
+                    ]
+                }
+            },
+            {
+                id: 7,
+                title: "Internet dan World Wide Web",
+                description: "Sejarah dan perkembangan internet, cara kerja web, protokol HTTP/HTTPS, browser, search engine, dan etika berinternet yang baik",
+                category: "Jaringan",
+                type: "PDF",
+                content: generateDetailedPDFContent("Internet dan WWW", "internet"),
+                uploadDate: "2024-01-21",
+                size: "7.8 MB",
+                chapters: ["Sejarah Internet", "Cara Kerja Web", "Web Browser", "Search Engine", "Etika Internet"],
+                image: generateInternetImage(),
+                detailedContent: {
+                    overview: "Internet adalah jaringan global yang menghubungkan jutaan komputer di seluruh dunia. World Wide Web (WWW) adalah layanan yang berjalan di atas internet untuk berbagi informasi melalui halaman web.",
+                    topics: [
+                        {
+                            title: "1. Sejarah dan Perkembangan",
+                            content: "Internet dimulai dari proyek ARPANET pada tahun 1960-an dan berkembang menjadi jaringan global yang kita kenal sekarang.",
+                            examples: ["ARPANET (1969)", "TCP/IP (1983)", "World Wide Web (1991)", "Web 2.0 (2004)"]
+                        },
+                        {
+                            title: "2. Cara Kerja Web",
+                            content: "Web bekerja dengan sistem client-server menggunakan protokol HTTP/HTTPS untuk mengirim dan menerima data.",
+                            examples: ["HTTP Request/Response", "DNS Resolution", "Web Server", "Client Browser"]
+                        },
+                        {
+                            title: "3. Web Browser",
+                            content: "Aplikasi yang digunakan untuk mengakses dan menampilkan halaman web. Browser menginterpretasi kode HTML, CSS, dan JavaScript.",
+                            examples: ["Google Chrome", "Mozilla Firefox", "Microsoft Edge", "Safari"]
+                        },
+                        {
+                            title: "4. Search Engine",
+                            content: "Sistem yang mengindeks dan mencari informasi di internet berdasarkan kata kunci yang dimasukkan pengguna.",
+                            examples: ["Google Search", "Bing", "Yahoo", "DuckDuckGo"]
+                        }
+                    ]
+                }
+            },
+            {
+                id: 8,
+                title: "Aplikasi Spreadsheet Excel",
+                description: "Panduan lengkap Microsoft Excel: pembuatan tabel, formula dan fungsi, grafik, pivot table, dan analisis data untuk keperluan akademik dan bisnis",
+                category: "Software",
+                type: "PDF",
+                content: generateDetailedPDFContent("Microsoft Excel", "excel"),
+                uploadDate: "2024-01-22",
+                size: "10.2 MB",
+                chapters: ["Interface Excel", "Formula & Fungsi", "Grafik & Chart", "Pivot Table", "Data Analysis"],
+                image: generateExcelImage(),
+                detailedContent: {
+                    overview: "Microsoft Excel adalah aplikasi spreadsheet yang digunakan untuk mengorganisir, menghitung, dan menganalisis data. Excel sangat berguna untuk membuat laporan, analisis keuangan, dan visualisasi data.",
+                    topics: [
+                        {
+                            title: "1. Worksheet dan Workbook",
+                            content: "Workbook adalah file Excel yang berisi satu atau lebih worksheet. Worksheet terdiri dari sel-sel yang diorganisir dalam baris dan kolom.",
+                            examples: ["Cell Reference (A1, B2)", "Worksheet Tabs", "Row & Column Headers", "Formula Bar"]
+                        },
+                        {
+                            title: "2. Formula dan Fungsi",
+                            content: "Formula adalah persamaan yang melakukan perhitungan pada data. Fungsi adalah formula yang sudah didefinisikan sebelumnya.",
+                            examples: ["SUM(), AVERAGE()", "IF(), VLOOKUP()", "COUNT(), MAX(), MIN()", "DATE(), TEXT()"]
+                        },
+                        {
+                            title: "3. Grafik dan Visualisasi",
+                            content: "Excel menyediakan berbagai jenis grafik untuk memvisualisasikan data agar lebih mudah dipahami dan dianalisis.",
+                            examples: ["Column Chart", "Line Chart", "Pie Chart", "Bar Chart", "Scatter Plot"]
+                        },
+                        {
+                            title: "4. Pivot Table",
+                            content: "Fitur powerful untuk merangkum, menganalisis, dan menyajikan data dalam format yang mudah dibaca dan dipahami.",
+                            examples: ["Data Summarization", "Grouping", "Filtering", "Calculated Fields"]
+                        }
+                    ]
+                }
+            },
+            {
+                id: 9,
+                title: "Presentasi Digital PowerPoint",
+                description: "Cara membuat presentasi yang efektif dan menarik menggunakan PowerPoint: design slide, animasi, transisi, dan teknik presentasi yang baik",
+                category: "Software",
+                type: "PDF",
+                content: generateDetailedPDFContent("PowerPoint Presentation", "powerpoint"),
+                uploadDate: "2024-01-23",
+                size: "11.5 MB",
+                chapters: ["Design Slide", "Animasi & Transisi", "Multimedia", "Presenter Tools", "Tips Presentasi"],
+                image: generatePowerPointImage(),
+                detailedContent: {
+                    overview: "Microsoft PowerPoint adalah aplikasi untuk membuat presentasi digital. PowerPoint memungkinkan pengguna membuat slide yang menarik dengan teks, gambar, grafik, dan multimedia.",
+                    topics: [
+                        {
+                            title: "1. Design dan Layout",
+                            content: "Prinsip-prinsip design yang baik untuk membuat slide yang menarik dan mudah dibaca oleh audiens.",
+                            examples: ["Slide Layouts", "Design Themes", "Color Schemes", "Typography", "Visual Hierarchy"]
+                        },
+                        {
+                            title: "2. Animasi dan Transisi",
+                            content: "Efek visual yang membuat presentasi lebih dinamis dan menarik perhatian audiens.",
+                            examples: ["Entrance Effects", "Exit Effects", "Motion Paths", "Slide Transitions"]
+                        },
+                        {
+                            title: "3. Multimedia Integration",
+                            content: "Menambahkan elemen multimedia seperti gambar, video, audio, dan grafik untuk memperkaya presentasi.",
+                            examples: ["Insert Images", "Embed Videos", "Audio Narration", "SmartArt Graphics"]
+                        },
+                        {
+                            title: "4. Presenter Tools",
+                            content: "Fitur-fitur yang membantu presenter dalam menyampaikan presentasi dengan lebih efektif.",
+                            examples: ["Presenter View", "Slide Notes", "Laser Pointer", "Slide Show Controls"]
+                        }
+                    ]
+                }
+            },
+            {
+                id: 10,
+                title: "Etika Digital dan Netiquette",
+                description: "Norma dan etika dalam menggunakan teknologi digital, media sosial, komunikasi online, dan tanggung jawab sebagai warga digital yang baik",
+                category: "Keamanan",
+                type: "PDF",
+                content: generateDetailedPDFContent("Etika Digital", "ethics"),
+                uploadDate: "2024-01-24",
+                size: "5.9 MB",
+                chapters: ["Digital Citizenship", "Social Media Ethics", "Online Communication", "Privacy Rights", "Cyberbullying"],
+                image: generateEthicsImage(),
+                detailedContent: {
+                    overview: "Etika digital adalah seperangkat prinsip dan norma yang mengatur perilaku manusia dalam menggunakan teknologi digital. Penting untuk memahami tanggung jawab sebagai warga digital yang baik.",
+                    topics: [
+                        {
+                            title: "1. Digital Citizenship",
+                            content: "Konsep menjadi warga digital yang bertanggung jawab dalam menggunakan teknologi untuk berpartisipasi dalam masyarakat digital.",
+                            examples: ["Digital Rights", "Digital Responsibilities", "Digital Literacy", "Digital Access"]
+                        },
+                        {
+                            title: "2. Social Media Ethics",
+                            content: "Pedoman berperilaku yang baik di media sosial, termasuk menghormati privasi orang lain dan berbagi konten yang positif.",
+                            examples: ["Respectful Communication", "Privacy Settings", "Fact Checking", "Appropriate Sharing"]
+                        },
+                        {
+                            title: "3. Cyberbullying Prevention",
+                            content: "Memahami dan mencegah cyberbullying, serta mengetahui cara melaporkan dan menangani kasus bullying online.",
+                            examples: ["Recognize Cyberbullying", "Report Mechanisms", "Support Victims", "Bystander Intervention"]
+                        },
+                        {
+                            title: "4. Intellectual Property",
+                            content: "Menghormati hak cipta dan kekayaan intelektual dalam dunia digital, termasuk penggunaan konten yang legal dan etis.",
+                            examples: ["Copyright Laws", "Fair Use", "Creative Commons", "Plagiarism Prevention"]
+                        }
+                    ]
+                }
+            },
+            {
+                id: 11,
+                title: "Pemrograman Visual Scratch",
+                description: "Pengenalan pemrograman visual menggunakan Scratch: membuat game, animasi, dan aplikasi interaktif dengan drag-and-drop programming",
+                category: "Algoritma",
+                type: "PDF",
+                content: generateDetailedPDFContent("Scratch Programming", "scratch"),
+                uploadDate: "2024-01-25",
+                size: "12.8 MB",
+                chapters: ["Interface Scratch", "Sprites & Backgrounds", "Scripts & Events", "Game Development", "Sharing Projects"],
+                image: generateScratchImage(),
+                detailedContent: {
+                    overview: "Scratch adalah bahasa pemrograman visual yang dikembangkan oleh MIT untuk mengajarkan konsep pemrograman kepada anak-anak dan pemula. Scratch menggunakan blok-blok visual yang dapat disusun untuk membuat program.",
+                    topics: [
+                        {
+                            title: "1. Interface dan Workspace",
+                            content: "Scratch memiliki interface yang user-friendly dengan area stage, sprite list, dan blocks palette yang memudahkan pemrograman visual.",
+                            examples: ["Stage Area", "Sprite List", "Blocks Palette", "Scripts Area", "Costume Editor"]
+                        },
+                        {
+                            title: "2. Sprites dan Backgrounds",
+                            content: "Sprites adalah karakter atau objek dalam program Scratch. Background adalah latar belakang stage tempat sprites berinteraksi.",
+                            examples: ["Create Sprites", "Import Images", "Edit Costumes", "Background Library", "Paint Editor"]
+                        },
+                        {
+                            title: "3. Events dan Control",
+                            content: "Event blocks mengatur kapan script dimulai, sedangkan control blocks mengatur alur program seperti loops dan conditions.",
+                            examples: ["When Flag Clicked", "When Key Pressed", "Forever Loop", "If-Then-Else", "Wait Blocks"]
+                        },
+                        {
+                            title: "4. Game Development",
+                            content: "Membuat game sederhana dengan Scratch menggunakan konsep collision detection, scoring, dan user interaction.",
+                            examples: ["Collision Detection", "Score Variables", "Game Over Conditions", "Sound Effects", "Multiple Levels"]
+                        }
+                    ]
+                }
+            },
+            {
+                id: 12,
+                title: "Multimedia Digital dan Editing",
+                description: "Pengenalan multimedia digital: editing foto dengan GIMP, editing video dengan software gratis, dan manipulasi audio untuk konten kreatif",
+                category: "Software",
+                type: "PDF",
+                content: generateDetailedPDFContent("Multimedia Digital", "multimedia"),
+                uploadDate: "2024-01-26",
+                size: "15.2 MB",
+                chapters: ["Konsep Multimedia", "Photo Editing", "Video Editing", "Audio Processing", "Web Multimedia"],
+                image: generateMultimediaImage(),
+                detailedContent: {
+                    overview: "Multimedia digital menggabungkan berbagai jenis media seperti teks, gambar, audio, video, dan animasi untuk menciptakan konten yang interaktif dan menarik.",
+                    topics: [
+                        {
+                            title: "1. Digital Image Processing",
+                            content: "Teknik editing dan manipulasi gambar digital menggunakan software seperti GIMP, termasuk color correction dan special effects.",
+                            examples: ["Color Adjustment", "Filters & Effects", "Layer Management", "Selection Tools", "Image Formats"]
+                        },
+                        {
+                            title: "2. Video Editing Basics",
+                            content: "Dasar-dasar editing video menggunakan software gratis seperti DaVinci Resolve atau OpenShot untuk membuat konten video yang menarik.",
+                            examples: ["Timeline Editing", "Transitions", "Color Grading", "Audio Sync", "Export Settings"]
+                        },
+                        {
+                            title: "3. Audio Processing",
+                            content: "Editing dan processing audio digital menggunakan software seperti Audacity untuk podcast, musik, dan sound effects.",
+                            examples: ["Audio Recording", "Noise Reduction", "Effects Processing", "Multi-track Editing", "Audio Formats"]
+                        },
+                        {
+                            title: "4. Web Multimedia",
+                            content: "Mengoptimalkan multimedia untuk web, termasuk compression, format yang tepat, dan responsive design untuk berbagai perangkat.",
+                            examples: ["Image Optimization", "Video Compression", "Responsive Images", "Web Audio", "Loading Performance"]
+                        }
+                    ]
+                }
+            }
+        ];
+
+        // Sample assignments data
+        const sampleAssignments = [
+            {
+                id: 1,
+                title: "Tugas 1: Identifikasi Hardware",
+                description: "Buat laporan tentang komponen hardware komputer",
+                dueDate: "2024-02-15",
+                category: "Hardware"
+            },
+            {
+                id: 2,
+                title: "Tugas 2: Instalasi Software",
+                description: "Dokumentasi proses instalasi software",
+                dueDate: "2024-02-20",
+                category: "Software"
+            },
+            {
+                id: 3,
+                title: "Tugas 3: Konfigurasi Jaringan",
+                description: "Praktik konfigurasi jaringan sederhana",
+                dueDate: "2024-02-25",
+                category: "Jaringan"
+            },
+            {
+                id: 4,
+                title: "Tugas 4: Membuat Algoritma",
+                description: "Buat flowchart dan pseudocode sederhana",
+                dueDate: "2024-03-01",
+                category: "Algoritma"
+            }
+        ];
+
+        // Drag & Drop game materials
+        const materials = {
+            hardware: {
+                title: '🔧 Komponen Hardware',
+                items: [
+                    { id: 'cpu', name: 'CPU', icon: '🧠', target: 'processor' },
+                    { id: 'ram', name: 'RAM', icon: '💾', target: 'memory' },
+                    { id: 'hdd', name: 'Hard Disk', icon: '💿', target: 'storage' },
+                    { id: 'ssd', name: 'SSD', icon: '⚡', target: 'storage' },
+                    { id: 'gpu', name: 'GPU', icon: '🎮', target: 'graphics' },
+                    { id: 'motherboard', name: 'Motherboard', icon: '🔌', target: 'mainboard' },
+                    { id: 'psu', name: 'Power Supply', icon: '🔋', target: 'power' },
+                    { id: 'monitor', name: 'Monitor', icon: '🖥️', target: 'output' }
+                ],
+                zones: [
+                    { id: 'processor', name: 'Processor', description: 'Otak komputer untuk pemrosesan' },
+                    { id: 'memory', name: 'Memori', description: 'Penyimpanan data sementara' },
+                    { id: 'storage', name: 'Penyimpanan', description: 'Penyimpanan data permanen' },
+                    { id: 'graphics', name: 'Grafis', description: 'Pemroses tampilan visual' },
+                    { id: 'mainboard', name: 'Papan Utama', description: 'Penghubung semua komponen' },
+                    { id: 'power', name: 'Daya', description: 'Sumber tenaga listrik' },
+                    { id: 'output', name: 'Output Device', description: 'Perangkat keluaran data' }
+                ]
+            },
+            software: {
+                title: '💿 Jenis Software',
+                items: [
+                    { id: 'windows', name: 'Windows', icon: '🪟', target: 'os' },
+                    { id: 'word', name: 'MS Word', icon: '📝', target: 'office' },
+                    { id: 'photoshop', name: 'Photoshop', icon: '🎨', target: 'graphics' },
+                    { id: 'chrome', name: 'Chrome', icon: '🌐', target: 'browser' },
+                    { id: 'antivirus', name: 'Antivirus', icon: '🛡️', target: 'security' },
+                    { id: 'game', name: 'Game', icon: '🎮', target: 'entertainment' }
+                ],
+                zones: [
+                    { id: 'os', name: 'Sistem Operasi', description: 'Mengelola komputer' },
+                    { id: 'office', name: 'Aplikasi Perkantoran', description: 'Untuk bekerja' },
+                    { id: 'graphics', name: 'Aplikasi Grafis', description: 'Edit gambar/video' },
+                    { id: 'browser', name: 'Web Browser', description: 'Akses internet' },
+                    { id: 'security', name: 'Keamanan', description: 'Melindungi komputer' },
+                    { id: 'entertainment', name: 'Hiburan', description: 'Game dan multimedia' }
+                ]
+            },
+            network: {
+                title: '🌐 Komponen Jaringan',
+                items: [
+                    { id: 'router', name: 'Router', icon: '📡', target: 'routing' },
+                    { id: 'switch', name: 'Switch', icon: '🔀', target: 'switching' },
+                    { id: 'cable', name: 'Kabel UTP', icon: '🔌', target: 'transmission' },
+                    { id: 'wifi', name: 'WiFi', icon: '📶', target: 'wireless' },
+                    { id: 'server', name: 'Server', icon: '🖥️', target: 'hosting' },
+                    { id: 'modem', name: 'Modem', icon: '📞', target: 'connection' }
+                ],
+                zones: [
+                    { id: 'routing', name: 'Routing', description: 'Mengarahkan data antar jaringan' },
+                    { id: 'switching', name: 'Switching', description: 'Menghubungkan perangkat lokal' },
+                    { id: 'transmission', name: 'Media Transmisi', description: 'Media pengiriman data' },
+                    { id: 'wireless', name: 'Teknologi Nirkabel', description: 'Komunikasi tanpa kabel' },
+                    { id: 'hosting', name: 'Server & Hosting', description: 'Penyedia layanan data' },
+                    { id: 'connection', name: 'Koneksi Internet', description: 'Akses ke internet' }
+                ]
+            },
+            algorithm: {
+                title: '🧮 Konsep Algoritma',
+                items: [
+                    { id: 'input', name: 'Input', icon: '📥', target: 'data-input' },
+                    { id: 'process', name: 'Proses', icon: '⚙️', target: 'processing' },
+                    { id: 'output', name: 'Output', icon: '📤', target: 'data-output' },
+                    { id: 'loop', name: 'Perulangan', icon: '🔄', target: 'iteration' },
+                    { id: 'condition', name: 'Kondisi', icon: '❓', target: 'decision' },
+                    { id: 'variable', name: 'Variabel', icon: '📊', target: 'storage' }
+                ],
+                zones: [
+                    { id: 'data-input', name: 'Input Data', description: 'Memasukkan data ke program' },
+                    { id: 'processing', name: 'Pemrosesan', description: 'Mengolah dan menghitung data' },
+                    { id: 'data-output', name: 'Output Data', description: 'Menampilkan hasil program' },
+                    { id: 'iteration', name: 'Iterasi', description: 'Mengulang proses tertentu' },
+                    { id: 'decision', name: 'Keputusan', description: 'Percabangan logika program' },
+                    { id: 'storage', name: 'Penyimpanan', description: 'Menyimpan nilai dalam program' }
+                ]
+            }
+        };
+
+        // Image Generation Functions
+        function generateHardwareImage() {
+            return `<svg width="300" height="200" viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg">
+                <rect width="300" height="200" fill="#f0f9ff"/>
+                <rect x="50" y="40" width="200" height="120" rx="10" fill="#1e40af" stroke="#1d4ed8" stroke-width="2"/>
+                <rect x="70" y="60" width="60" height="40" rx="5" fill="#3b82f6"/>
+                <text x="100" y="85" text-anchor="middle" fill="white" font-size="10">CPU</text>
+                <rect x="140" y="60" width="60" height="40" rx="5" fill="#10b981"/>
+                <text x="170" y="85" text-anchor="middle" fill="white" font-size="10">RAM</text>
+                <rect x="210" y="60" width="30" height="80" rx="5" fill="#f59e0b"/>
+                <text x="225" y="105" text-anchor="middle" fill="white" font-size="8">SSD</text>
+                <circle cx="90" cy="130" r="15" fill="#ef4444"/>
+                <text x="90" y="135" text-anchor="middle" fill="white" font-size="8">GPU</text>
+                <text x="150" y="25" text-anchor="middle" fill="#1e40af" font-size="16" font-weight="bold">Hardware Komputer</text>
+            </svg>`;
+        }
+
+        function generateWindowsImage() {
+            return `<svg width="300" height="200" viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg">
+                <rect width="300" height="200" fill="#0078d4"/>
+                <rect x="20" y="20" width="260" height="140" rx="5" fill="#ffffff"/>
+                <rect x="20" y="20" width="260" height="30" fill="#f3f2f1"/>
+                <circle cx="40" cy="35" r="5" fill="#ff5f56"/>
+                <circle cx="55" cy="35" r="5" fill="#ffbd2e"/>
+                <circle cx="70" cy="35" r="5" fill="#27ca3f"/>
+                <rect x="30" y="60" width="80" height="80" rx="5" fill="#0078d4"/>
+                <text x="70" y="105" text-anchor="middle" fill="white" font-size="12">📁</text>
+                <rect x="120" y="60" width="80" height="80" rx="5" fill="#107c10"/>
+                <text x="160" y="105" text-anchor="middle" fill="white" font-size="12">📊</text>
+                <rect x="210" y="60" width="60" height="80" rx="5" fill="#d83b01"/>
+                <text x="240" y="105" text-anchor="middle" fill="white" font-size="12">🎵</text>
+                <rect x="20" y="170" width="260" height="20" fill="#323130"/>
+                <rect x="30" y="175" width="30" height="10" rx="2" fill="#0078d4"/>
+                <text x="150" y="185" text-anchor="middle" fill="#ffffff" font-size="16" font-weight="bold">Windows OS</text>
+            </svg>`;
+        }
+
+        function generateNetworkImage() {
+            return `<svg width="300" height="200" viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg">
+                <rect width="300" height="200" fill="#f0fdf4"/>
+                <circle cx="150" cy="100" r="30" fill="#10b981"/>
+                <text x="150" y="105" text-anchor="middle" fill="white" font-size="12">Router</text>
+                <circle cx="80" cy="60" r="20" fill="#3b82f6"/>
+                <text x="80" y="65" text-anchor="middle" fill="white" font-size="10">PC1</text>
+                <circle cx="220" cy="60" r="20" fill="#3b82f6"/>
+                <text x="220" y="65" text-anchor="middle" fill="white" font-size="10">PC2</text>
+                <circle cx="80" cy="140" r="20" fill="#3b82f6"/>
+                <text x="80" y="145" text-anchor="middle" fill="white" font-size="10">PC3</text>
+                <circle cx="220" cy="140" r="20" fill="#3b82f6"/>
+                <text x="220" y="145" text-anchor="middle" fill="white" font-size="10">PC4</text>
+                <line x1="100" y1="70" x2="130" y2="85" stroke="#6b7280" stroke-width="2"/>
+                <line x1="200" y1="70" x2="170" y2="85" stroke="#6b7280" stroke-width="2"/>
+                <line x1="100" y1="130" x2="130" y2="115" stroke="#6b7280" stroke-width="2"/>
+                <line x1="200" y1="130" x2="170" y2="115" stroke="#6b7280" stroke-width="2"/>
+                <text x="150" y="25" text-anchor="middle" fill="#10b981" font-size="16" font-weight="bold">Jaringan Komputer</text>
+            </svg>`;
+        }
+
+        function generateAlgorithmImage() {
+            return `<svg width="300" height="200" viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg">
+                <rect width="300" height="200" fill="#fef3c7"/>
+                <ellipse cx="150" cy="30" rx="40" ry="15" fill="#f59e0b"/>
+                <text x="150" y="35" text-anchor="middle" fill="white" font-size="10">START</text>
+                <rect x="120" y="60" width="60" height="20" fill="#3b82f6"/>
+                <text x="150" y="75" text-anchor="middle" fill="white" font-size="10">Input Data</text>
+                <polygon points="120,100 150,120 180,100 150,80" fill="#ef4444"/>
+                <text x="150" y="105" text-anchor="middle" fill="white" font-size="8">Decision</text>
+                <rect x="120" y="140" width="60" height="20" fill="#10b981"/>
+                <text x="150" y="155" text-anchor="middle" fill="white" font-size="10">Process</text>
+                <ellipse cx="150" cy="180" rx="40" ry="15" fill="#f59e0b"/>
+                <text x="150" y="185" text-anchor="middle" fill="white" font-size="10">END</text>
+                <line x1="150" y1="45" x2="150" y2="60" stroke="#374151" stroke-width="2" marker-end="url(#arrowhead)"/>
+                <line x1="150" y1="80" x2="150" y2="95" stroke="#374151" stroke-width="2" marker-end="url(#arrowhead)"/>
+                <line x1="150" y1="120" x2="150" y2="140" stroke="#374151" stroke-width="2" marker-end="url(#arrowhead)"/>
+                <line x1="150" y1="160" x2="150" y2="165" stroke="#374151" stroke-width="2" marker-end="url(#arrowhead)"/>
+                <defs>
+                    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                        <polygon points="0 0, 10 3.5, 0 7" fill="#374151"/>
+                    </marker>
+                </defs>
+                <text x="150" y="15" text-anchor="middle" fill="#f59e0b" font-size="16" font-weight="bold">Flowchart Algoritma</text>
+            </svg>`;
+        }
+
+        function generateWordImage() {
+            return `<svg width="300" height="200" viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg">
+                <rect width="300" height="200" fill="#f8fafc"/>
+                <rect x="40" y="30" width="220" height="140" rx="5" fill="#ffffff" stroke="#e2e8f0" stroke-width="2"/>
+                <rect x="40" y="30" width="220" height="25" fill="#2563eb"/>
+                <text x="150" y="47" text-anchor="middle" fill="white" font-size="12" font-weight="bold">Microsoft Word</text>
+                <rect x="50" y="65" width="200" height="15" fill="#f1f5f9"/>
+                <rect x="55" y="68" width="15" height="9" fill="#2563eb"/>
+                <rect x="75" y="68" width="15" height="9" fill="#10b981"/>
+                <rect x="95" y="68" width="15" height="9" fill="#f59e0b"/>
+                <line x1="60" y1="90" x2="240" y2="90" stroke="#cbd5e1" stroke-width="1"/>
+                <line x1="60" y1="100" x2="220" y2="100" stroke="#cbd5e1" stroke-width="1"/>
+                <line x1="60" y1="110" x2="200" y2="110" stroke="#cbd5e1" stroke-width="1"/>
+                <line x1="60" y1="120" x2="230" y2="120" stroke="#cbd5e1" stroke-width="1"/>
+                <line x1="60" y1="130" x2="180" y2="130" stroke="#cbd5e1" stroke-width="1"/>
+                <rect x="70" y="140" width="80" height="20" rx="3" fill="#e2e8f0"/>
+                <rect x="160" y="140" width="60" height="20" rx="3" fill="#e2e8f0"/>
+                <text x="150" y="185" text-anchor="middle" fill="#2563eb" font-size="14" font-weight="bold">Document Processing</text>
+            </svg>`;
+        }
+
+        function generateSecurityImage() {
+            return `<svg width="300" height="200" viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg">
+                <rect width="300" height="200" fill="#fef2f2"/>
+                <path d="M150 40 L120 60 L120 120 Q120 140 150 140 Q180 140 180 120 L180 60 Z" fill="#dc2626"/>
+                <circle cx="150" cy="90" r="15" fill="#ffffff"/>
+                <rect x="145" y="85" width="10" height="10" fill="#dc2626"/>
+                <circle cx="150" cy="95" r="2" fill="#dc2626"/>
+                <rect x="100" y="150" width="100" height="30" rx="5" fill="#1f2937"/>
+                <text x="150" y="170" text-anchor="middle" fill="white" font-size="12">🔒 SECURE</text>
+                <circle cx="80" cy="80" r="8" fill="#ef4444"/>
+                <text x="80" y="85" text-anchor="middle" fill="white" font-size="8">⚠️</text>
+                <circle cx="220" cy="80" r="8" fill="#ef4444"/>
+                <text x="220" y="85" text-anchor="middle" fill="white" font-size="8">🦠</text>
+                <circle cx="80" cy="120" r="8" fill="#ef4444"/>
+                <text x="80" y="125" text-anchor="middle" fill="white" font-size="8">🎣</text>
+                <circle cx="220" cy="120" r="8" fill="#ef4444"/>
+                <text x="220" y="125" text-anchor="middle" fill="white" font-size="8">🔓</text>
+                <text x="150" y="25" text-anchor="middle" fill="#dc2626" font-size="16" font-weight="bold">Cyber Security</text>
+            </svg>`;
+        }
+
+        function generateInternetImage() {
+            return `<svg width="300" height="200" viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg">
+                <rect width="300" height="200" fill="#f0f9ff"/>
+                <circle cx="150" cy="100" r="60" fill="none" stroke="#3b82f6" stroke-width="2"/>
+                <circle cx="150" cy="100" r="40" fill="none" stroke="#3b82f6" stroke-width="2"/>
+                <circle cx="150" cy="100" r="20" fill="none" stroke="#3b82f6" stroke-width="2"/>
+                <line x1="90" y1="100" x2="210" y2="100" stroke="#3b82f6" stroke-width="2"/>
+                <ellipse cx="150" cy="100" rx="60" ry="20" fill="none" stroke="#3b82f6" stroke-width="2"/>
+                <ellipse cx="150" cy="100" rx="60" ry="40" fill="none" stroke="#3b82f6" stroke-width="2"/>
+                <circle cx="150" cy="100" r="5" fill="#1d4ed8"/>
+                <circle cx="120" cy="80" r="3" fill="#10b981"/>
+                <circle cx="180" cy="120" r="3" fill="#10b981"/>
+                <circle cx="130" cy="130" r="3" fill="#10b981"/>
+                <circle cx="170" cy="70" r="3" fill="#10b981"/>
+                <circle cx="110" cy="110" r="3" fill="#10b981"/>
+                <circle cx="190" cy="90" r="3" fill="#10b981"/>
+                <text x="150" y="25" text-anchor="middle" fill="#1d4ed8" font-size="16" font-weight="bold">World Wide Web</text>
+                <text x="150" y="185" text-anchor="middle" fill="#3b82f6" font-size="12">Global Network</text>
+            </svg>`;
+        }
+
+        function generateExcelImage() {
+            return `<svg width="300" height="200" viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg">
+                <rect width="300" height="200" fill="#f0fdf4"/>
+                <rect x="50" y="40" width="200" height="120" rx="5" fill="#ffffff" stroke="#10b981" stroke-width="2"/>
+                <rect x="50" y="40" width="200" height="20" fill="#10b981"/>
+                <text x="150" y="55" text-anchor="middle" fill="white" font-size="12" font-weight="bold">Excel Spreadsheet</text>
+                <g stroke="#d1d5db" stroke-width="1">
+                    <line x1="50" y1="80" x2="250" y2="80"/>
+                    <line x1="50" y1="100" x2="250" y2="100"/>
+                    <line x1="50" y1="120" x2="250" y2="120"/>
+                    <line x1="50" y1="140" x2="250" y2="140"/>
+                    <line x1="90" y1="60" x2="90" y2="160"/>
+                    <line x1="130" y1="60" x2="130" y2="160"/>
+                    <line x1="170" y1="60" x2="170" y2="160"/>
+                    <line x1="210" y1="60" x2="210" y2="160"/>
+                </g>
+                <text x="70" y="75" text-anchor="middle" fill="#374151" font-size="10">A</text>
+                <text x="110" y="75" text-anchor="middle" fill="#374151" font-size="10">B</text>
+                <text x="150" y="75" text-anchor="middle" fill="#374151" font-size="10">C</text>
+                <text x="190" y="75" text-anchor="middle" fill="#374151" font-size="10">D</text>
+                <text x="230" y="75" text-anchor="middle" fill="#374151" font-size="10">E</text>
+                <rect x="55" y="85" width="30" height="10" fill="#dbeafe"/>
+                <rect x="95" y="105" width="30" height="10" fill="#dcfce7"/>
+                <rect x="135" y="125" width="30" height="10" fill="#fef3c7"/>
+                <text x="150" y="185" text-anchor="middle" fill="#10b981" font-size="14" font-weight="bold">Data Analysis</text>
+            </svg>`;
+        }
+
+        function generatePowerPointImage() {
+            return `<svg width="300" height="200" viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg">
+                <rect width="300" height="200" fill="#fff7ed"/>
+                <rect x="60" y="40" width="180" height="120" rx="5" fill="#ffffff" stroke="#f97316" stroke-width="2"/>
+                <rect x="60" y="40" width="180" height="25" fill="#f97316"/>
+                <text x="150" y="57" text-anchor="middle" fill="white" font-size="12" font-weight="bold">PowerPoint</text>
+                <rect x="80" y="80" width="140" height="15" fill="#fed7aa"/>
+                <text x="150" y="92" text-anchor="middle" fill="#9a3412" font-size="10">Slide Title</text>
+                <circle cx="100" cy="115" r="8" fill="#f97316"/>
+                <rect x="120" y="110" width="100" height="3" fill="#fed7aa"/>
+                <rect x="120" y="117" width="80" height="3" fill="#fed7aa"/>
+                <rect x="120" y="124" width="90" height="3" fill="#fed7aa"/>
+                <rect x="80" y="135" width="60" height="15" rx="3" fill="#ea580c"/>
+                <text x="110" y="145" text-anchor="middle" fill="white" font-size="8">Button</text>
+                <rect x="160" y="135" width="60" height="15" rx="3" fill="#dc2626"/>
+                <text x="190" y="145" text-anchor="middle" fill="white" font-size="8">Action</text>
+                <text x="150" y="185" text-anchor="middle" fill="#f97316" font-size="14" font-weight="bold">Presentation</text>
+            </svg>`;
+        }
+
+        function generateEthicsImage() {
+            return `<svg width="300" height="200" viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg">
+                <rect width="300" height="200" fill="#f8fafc"/>
+                <circle cx="150" cy="100" r="50" fill="#8b5cf6"/>
+                <circle cx="130" cy="85" r="8" fill="#ffffff"/>
+                <circle cx="170" cy="85" r="8" fill="#ffffff"/>
+                <path d="M130 110 Q150 125 170 110" stroke="#ffffff" stroke-width="3" fill="none"/>
+                <rect x="100" y="150" width="100" height="20" rx="10" fill="#10b981"/>
+                <text x="150" y="165" text-anchor="middle" fill="white" font-size="12">Digital Ethics</text>
+                <circle cx="80" cy="60" r="15" fill="#ef4444"/>
+                <text x="80" y="65" text-anchor="middle" fill="white" font-size="10">❌</text>
+                <circle cx="220" cy="60" r="15" fill="#10b981"/>
+                <text x="220" y="65" text-anchor="middle" fill="white" font-size="10">✅</text>
+                <circle cx="80" cy="140" r="15" fill="#f59e0b"/>
+                <text x="80" y="145" text-anchor="middle" fill="white" font-size="10">⚠️</text>
+                <circle cx="220" cy="140" r="15" fill="#3b82f6"/>
+                <text x="220" y="145" text-anchor="middle" fill="white" font-size="10">ℹ️</text>
+                <text x="150" y="25" text-anchor="middle" fill="#8b5cf6" font-size="16" font-weight="bold">Digital Citizenship</text>
+            </svg>`;
+        }
+
+        function generateScratchImage() {
+            return `<svg width="300" height="200" viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg">
+                <rect width="300" height="200" fill="#fff1f2"/>
+                <rect x="40" y="40" width="220" height="120" rx="10" fill="#ffffff" stroke="#f97316" stroke-width="2"/>
+                <rect x="50" y="50" width="80" height="100" fill="#f0f9ff"/>
+                <rect x="55" y="55" width="70" height="15" rx="7" fill="#3b82f6"/>
+                <text x="90" y="66" text-anchor="middle" fill="white" font-size="8">when clicked</text>
+                <rect x="55" y="75" width="70" height="15" rx="7" fill="#10b981"/>
+                <text x="90" y="86" text-anchor="middle" fill="white" font-size="8">move 10 steps</text>
+                <rect x="55" y="95" width="70" height="15" rx="7" fill="#f59e0b"/>
+                <text x="90" y="106" text-anchor="middle" fill="white" font-size="8">turn 15 degrees</text>
+                <rect x="55" y="115" width="70" height="15" rx="7" fill="#ef4444"/>
+                <text x="90" y="126" text-anchor="middle" fill="white" font-size="8">say "Hello!"</text>
+                <rect x="140" y="50" width="110" height="100" fill="#f9fafb"/>
+                <circle cx="195" cy="100" r="20" fill="#f97316"/>
+                <circle cx="190" cy="95" r="3" fill="#ffffff"/>
+                <circle cx="200" cy="95" r="3" fill="#ffffff"/>
+                <path d="M185 105 Q195 110 205 105" stroke="#ffffff" stroke-width="2" fill="none"/>
+                <text x="150" y="25" text-anchor="middle" fill="#f97316" font-size="16" font-weight="bold">Scratch Programming</text>
+                <text x="150" y="185" text-anchor="middle" fill="#f97316" font-size="12">Visual Coding</text>
+            </svg>`;
+        }
+
+        function generateMultimediaImage() {
+            return `<svg width="300" height="200" viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg">
+                <rect width="300" height="200" fill="#f5f3ff"/>
+                <rect x="40" y="40" width="220" height="120" rx="10" fill="#ffffff" stroke="#8b5cf6" stroke-width="2"/>
+                <rect x="60" y="60" width="60" height="40" rx="5" fill="#3b82f6"/>
+                <text x="90" y="85" text-anchor="middle" fill="white" font-size="10">📷 Photo</text>
+                <rect x="130" y="60" width="60" height="40" rx="5" fill="#10b981"/>
+                <text x="160" y="85" text-anchor="middle" fill="white" font-size="10">🎥 Video</text>
+                <rect x="200" y="60" width="40" height="40" rx="5" fill="#f59e0b"/>
+                <text x="220" y="85" text-anchor="middle" fill="white" font-size="10">🎵</text>
+                <rect x="60" y="110" width="80" height="30" rx="5" fill="#ef4444"/>
+                <text x="100" y="130" text-anchor="middle" fill="white" font-size="10">🎨 Graphics</text>
+                <rect x="150" y="110" width="90" height="30" rx="5" fill="#8b5cf6"/>
+                <text x="195" y="130" text-anchor="middle" fill="white" font-size="10">✨ Animation</text>
+                <text x="150" y="25" text-anchor="middle" fill="#8b5cf6" font-size="16" font-weight="bold">Multimedia Digital</text>
+                <text x="150" y="185" text-anchor="middle" fill="#8b5cf6" font-size="12">Creative Content</text>
+            </svg>`;
+        }
+
+        // Enhanced PDF Content Generator
+        function generateDetailedPDFContent(title, category) {
+            const material = sampleMaterials.find(m => m.title.includes(title.split(' ')[0]));
+            const detailContent = material ? material.detailedContent : null;
+            
+            let topicsContent = '';
+            if (detailContent && detailContent.topics) {
+                topicsContent = detailContent.topics.map((topic, index) => `
+${topic.title}
+${topic.content}
+
+Contoh:
+${topic.examples.map(ex => `- ${ex}`).join('\n')}
+
+`).join('\n');
+            }
+
+            const content = `%PDF-1.4
+1 0 obj
+<<
+/Type /Catalog
+/Pages 2 0 R
+>>
+endobj
+
+2 0 obj
+<<
+/Type /Pages
+/Kids [3 0 R]
+/Count 1
+>>
+endobj
+
+3 0 obj
+<<
+/Type /Page
+/Parent 2 0 R
+/MediaBox [0 0 612 792]
+/Contents 4 0 R
+/Resources <<
+/Font <<
+/F1 5 0 R
+/F2 6 0 R
+>>
+>>
+>>
+endobj
+
+4 0 obj
+<<
+/Length 2000
+>>
+stream
+BT
+/F1 20 Tf
+50 750 Td
+(${title}) Tj
+0 -30 Td
+/F2 14 Tf
+(Materi Pembelajaran Informatika SMP) Tj
+0 -40 Td
+/F2 12 Tf
+${detailContent ? `(${detailContent.overview})` : '(Materi pembelajaran komprehensif untuk siswa SMP)'} Tj
+0 -60 Td
+/F1 16 Tf
+(DAFTAR ISI) Tj
+0 -30 Td
+/F2 12 Tf
+${material && material.chapters ? material.chapters.map((chapter, i) => `(${i+1}. ${chapter})`).join(' Tj\n0 -20 Td\n') + ' Tj' : '(1. Pengenalan) Tj\n0 -20 Td\n(2. Konsep Dasar) Tj\n0 -20 Td\n(3. Praktik) Tj\n0 -20 Td\n(4. Evaluasi) Tj'}
+0 -60 Td
+/F1 16 Tf
+(PEMBAHASAN MATERI) Tj
+0 -30 Td
+/F2 11 Tf
+${topicsContent ? topicsContent.split('\n').map(line => `(${line.substring(0, 80)})`).join(' Tj\n0 -15 Td\n') + ' Tj' : '(Materi pembelajaran yang komprehensif) Tj\n0 -15 Td\n(dengan penjelasan detail dan contoh praktis) Tj\n0 -15 Td\n(untuk memudahkan pemahaman siswa) Tj'}
+0 -40 Td
+/F1 14 Tf
+(TUJUAN PEMBELAJARAN:) Tj
+0 -25 Td
+/F2 11 Tf
+(- Memahami konsep dasar dan teori) Tj
+0 -15 Td
+(- Mampu menerapkan dalam praktik) Tj
+0 -15 Td
+(- Menganalisis contoh kasus nyata) Tj
+0 -15 Td
+(- Mengevaluasi hasil pembelajaran) Tj
+0 -40 Td
+/F2 10 Tf
+(Dokumen ini dibuat untuk mendukung) Tj
+0 -12 Td
+(pembelajaran informatika di tingkat SMP) Tj
+0 -12 Td
+(sesuai dengan kurikulum nasional.) Tj
+ET
+endstream
+endobj
+
+5 0 obj
+<<
+/Type /Font
+/Subtype /Type1
+/BaseFont /Helvetica-Bold
+>>
+endobj
+
+6 0 obj
+<<
+/Type /Font
+/Subtype /Type1
+/BaseFont /Helvetica
+>>
+endobj
+
+xref
+0 7
+0000000000 65535 f 
+0000000010 00000 n 
+0000000079 00000 n 
+0000000173 00000 n 
+0000000301 00000 n 
+0000002380 00000 n 
+0000002456 00000 n 
+trailer
+<<
+/Size 7
+/Root 1 0 R
+>>
+startxref
+2528
+%%EOF`;
+            
+            return content;
+        }
+
+        // Original PDF Content Generator (fallback)
+        function generatePDFContent(title, subtitle) {
+<<
+/Type /Catalog
+/Pages 2 0 R
+>>
+endobj
+
+2 0 obj
+<<
+/Type /Pages
+/Kids [3 0 R]
+/Count 1
+>>
+endobj
+
+3 0 obj
+<<
+/Type /Page
+/Parent 2 0 R
+/MediaBox [0 0 612 792]
+/Contents 4 0 R
+/Resources <<
+/Font <<
+/F1 5 0 R
+>>
+>>
+>>
+endobj
+
+4 0 obj
+<<
+/Length 200
+>>
+stream
+BT
+/F1 24 Tf
+50 750 Td
+(${title}) Tj
+0 -50 Td
+/F1 16 Tf
+(${subtitle}) Tj
+0 -100 Td
+/F1 12 Tf
+(Materi Pembelajaran Informatika SMP) Tj
+0 -30 Td
+(Disusun untuk siswa kelas VII, VIII, dan IX) Tj
+0 -50 Td
+(Topik Pembahasan:) Tj
+0 -20 Td
+(- Konsep dasar dan teori) Tj
+0 -20 Td
+(- Praktik dan latihan) Tj
+0 -20 Td
+(- Contoh kasus nyata) Tj
+0 -20 Td
+(- Evaluasi dan assessment) Tj
+ET
+endstream
+endobj
+
+5 0 obj
+<<
+/Type /Font
+/Subtype /Type1
+/BaseFont /Helvetica
+>>
+endobj
+
+xref
+0 6
+0000000000 65535 f 
+0000000010 00000 n 
+0000000079 00000 n 
+0000000173 00000 n 
+0000000301 00000 n 
+0000000380 00000 n 
+trailer
+<<
+/Size 6
+/Root 1 0 R
+>>
+startxref
+456
+%%EOF`;
+            return content;
+        }
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            loadMaterials();
+            loadAssignments();
+            loadCategory(currentCategory);
+        });
+
+        // Tab Management
+        function showTab(tabName) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Remove active class from all tab buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('bg-blue-500', 'text-white');
+                btn.classList.add('bg-gray-300', 'text-gray-700');
+            });
+            
+            // Show selected tab content
+            document.getElementById(tabName + '-content').classList.add('active');
+            
+            // Activate selected tab button
+            const activeBtn = document.getElementById('tab-' + tabName);
+            activeBtn.classList.remove('bg-gray-300', 'text-gray-700');
+            activeBtn.classList.add('bg-blue-500', 'text-white');
+        }
+
+        // Student Data Management
+        function saveStudentData() {
+            const name = document.getElementById('student-name').value.trim();
+            const nisn = document.getElementById('student-nisn').value.trim();
+            const studentClass = document.getElementById('student-class').value;
+
+            if (!name || !nisn || !studentClass) {
+                showNotification('❌', 'Error', 'Mohon lengkapi semua data siswa!', 'error');
+                return;
+            }
+
+            studentData = {
+                name: name,
+                nisn: nisn,
+                class: studentClass,
+                timestamp: new Date().toISOString()
+            };
+
+            // Display student info
+            document.getElementById('display-name').textContent = name;
+            document.getElementById('display-class').textContent = studentClass;
+            document.getElementById('display-nisn').textContent = nisn;
+            document.getElementById('student-info').classList.remove('hidden');
+
+            // Save to Google Sheets (Demo)
+            saveToGoogleSheets(studentData, 'biodata_siswa');
+            
+            showNotification('✅', 'Berhasil', 'Data siswa berhasil disimpan!', 'success');
+        }
+
+        // Materials Management
+        function loadMaterials() {
+            const grid = document.getElementById('materials-grid');
+            grid.innerHTML = '<div class="col-span-full text-center py-8"><div class="loading text-4xl">⏳</div><p class="mt-2">Memuat materi dari database...</p></div>';
+
+            // Simulate loading from Google Sheets
+            setTimeout(() => {
+                displayMaterials(sampleMaterials);
+                showNotification('✅', 'Berhasil', `${sampleMaterials.length} materi berhasil dimuat!`, 'success');
+            }, 1500);
+        }
+
+        function createMaterialCard(material) {
+            const card = document.createElement('div');
+            card.className = 'bg-gradient-to-br from-blue-50 to-indigo-100 rounded-xl p-6 border border-blue-200 hover:shadow-xl hover:scale-105 transition-all duration-300';
+            
+            const typeIcon = {
+                'PDF': '📄',
+                'Video': '🎥',
+                'PPT': '📊'
+            };
+
+            const categoryColors = {
+                'Hardware': 'bg-red-500',
+                'Software': 'bg-green-500',
+                'Jaringan': 'bg-blue-500',
+                'Algoritma': 'bg-purple-500',
+                'Keamanan': 'bg-orange-500'
+            };
+
+            // Generate chapters list
+            const chaptersList = material.chapters ? material.chapters.map(chapter => `<li class="text-xs text-gray-600">• ${chapter}</li>`).join('') : '';
+
+            card.innerHTML = `
+                <div class="flex items-start justify-between mb-4">
+                    <div class="text-4xl">${typeIcon[material.type] || '📄'}</div>
+                    <span class="${categoryColors[material.category] || 'bg-gray-500'} text-white text-xs px-3 py-1 rounded-full font-semibold">
+                        ${material.category}
+                    </span>
+                </div>
+                
+                <!-- Material Image -->
+                <div class="mb-4 bg-white rounded-lg p-2 shadow-sm">
+                    ${material.image || ''}
+                </div>
+                
+                <h3 class="font-bold text-gray-800 mb-3 text-lg leading-tight">${material.title}</h3>
+                <p class="text-sm text-gray-600 mb-4 line-clamp-3">${material.description}</p>
+                
+                <!-- Chapters Preview -->
+                ${material.chapters ? `
+                <div class="mb-4 bg-white bg-opacity-70 rounded-lg p-3">
+                    <h4 class="text-xs font-semibold text-gray-700 mb-2">📚 Bab Pembahasan:</h4>
+                    <ul class="space-y-1">
+                        ${chaptersList}
+                    </ul>
+                </div>
+                ` : ''}
+                
+                <div class="flex justify-between items-center text-xs text-gray-500 mb-4 bg-white bg-opacity-50 rounded-lg p-2">
+                    <span class="flex items-center">📅 ${new Date(material.uploadDate).toLocaleDateString('id-ID')}</span>
+                    <span class="flex items-center">📦 ${material.size}</span>
+                </div>
+                <div class="flex space-x-2">
+                    <button onclick="previewMaterial('${material.id}')" 
+                            class="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-2 rounded-lg font-semibold transition-colors text-sm">
+                        👁️ Preview
+                    </button>
+                    <button onclick="downloadMaterial('${material.id}')" 
+                            class="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-2 rounded-lg font-semibold transition-colors text-sm">
+                        📥 Download
+                    </button>
+                </div>
+            `;
+            
+            return card;
+        }
+
+        function previewMaterial(materialId) {
+            const material = sampleMaterials.find(m => m.id == materialId);
+            if (material) {
+                showNotification('👁️', 'Preview', `Menampilkan preview: ${material.title}`, 'info');
+                
+                // Generate detailed content sections
+                const topicsHTML = material.detailedContent ? material.detailedContent.topics.map(topic => `
+                    <div class="mb-6 bg-white rounded-lg p-4 border border-gray-200">
+                        <h4 class="font-bold text-gray-800 mb-3">${topic.title}</h4>
+                        <p class="text-gray-700 mb-3">${topic.content}</p>
+                        <div class="bg-blue-50 rounded-lg p-3">
+                            <h5 class="font-semibold text-blue-800 mb-2">Contoh:</h5>
+                            <ul class="space-y-1">
+                                ${topic.examples.map(example => `<li class="text-blue-700 text-sm">• ${example}</li>`).join('')}
+                            </ul>
+                        </div>
+                    </div>
+                `).join('') : '';
+
+                const chaptersHTML = material.chapters ? material.chapters.map((chapter, index) => `
+                    <li class="flex items-center space-x-2">
+                        <span class="bg-blue-500 text-white text-xs px-2 py-1 rounded-full">${index + 1}</span>
+                        <span class="text-gray-700">${chapter}</span>
+                    </li>
+                `).join('') : '';
+                
+                // Create enhanced preview modal
+                const modal = document.createElement('div');
+                modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4';
+                modal.innerHTML = `
+                    <div class="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+                        <!-- Header -->
+                        <div class="flex justify-between items-start p-6 border-b border-gray-200">
+                            <div class="flex items-start space-x-4">
+                                <div class="bg-blue-100 rounded-lg p-3">
+                                    ${material.image || '<div class="text-4xl">📄</div>'}
+                                </div>
+                                <div>
+                                    <h2 class="text-2xl font-bold text-gray-800 mb-2">${material.title}</h2>
+                                    <p class="text-gray-600 mb-2">${material.description}</p>
+                                    <div class="flex items-center space-x-4 text-sm text-gray-500">
+                                        <span>📅 ${new Date(material.uploadDate).toLocaleDateString('id-ID')}</span>
+                                        <span>📦 ${material.size}</span>
+                                        <span class="bg-${material.category === 'Hardware' ? 'red' : material.category === 'Software' ? 'green' : material.category === 'Jaringan' ? 'blue' : material.category === 'Algoritma' ? 'purple' : 'orange'}-100 text-${material.category === 'Hardware' ? 'red' : material.category === 'Software' ? 'green' : material.category === 'Jaringan' ? 'blue' : material.category === 'Algoritma' ? 'purple' : 'orange'}-800 px-2 py-1 rounded-full">${material.category}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <button onclick="this.closest('.fixed').remove()" 
+                                    class="text-gray-500 hover:text-gray-700 text-2xl p-2">×</button>
+                        </div>
+                        
+                        <!-- Content -->
+                        <div class="flex-1 overflow-y-auto p-6">
+                            <!-- Overview -->
+                            ${material.detailedContent ? `
+                            <div class="mb-6">
+                                <h3 class="text-xl font-bold text-gray-800 mb-3">📖 Gambaran Umum</h3>
+                                <p class="text-gray-700 bg-gray-50 rounded-lg p-4">${material.detailedContent.overview}</p>
+                            </div>
+                            ` : ''}
+                            
+                            <!-- Chapters -->
+                            ${material.chapters ? `
+                            <div class="mb-6">
+                                <h3 class="text-xl font-bold text-gray-800 mb-3">📚 Daftar Bab</h3>
+                                <ul class="space-y-2 bg-gray-50 rounded-lg p-4">
+                                    ${chaptersHTML}
+                                </ul>
+                            </div>
+                            ` : ''}
+                            
+                            <!-- Detailed Topics -->
+                            ${material.detailedContent ? `
+                            <div class="mb-6">
+                                <h3 class="text-xl font-bold text-gray-800 mb-4">📝 Pembahasan Detail</h3>
+                                ${topicsHTML}
+                            </div>
+                            ` : ''}
+                            
+                            <!-- Learning Objectives -->
+                            <div class="bg-green-50 rounded-lg p-4 mb-6">
+                                <h3 class="text-lg font-bold text-green-800 mb-3">🎯 Tujuan Pembelajaran</h3>
+                                <ul class="space-y-2 text-green-700">
+                                    <li>• Memahami konsep dasar dan teori fundamental</li>
+                                    <li>• Mampu menerapkan pengetahuan dalam praktik</li>
+                                    <li>• Menganalisis contoh kasus nyata dan aplikasi</li>
+                                    <li>• Mengevaluasi dan mengassess pembelajaran</li>
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        <!-- Footer -->
+                        <div class="border-t border-gray-200 p-6 bg-gray-50">
+                            <div class="flex justify-between items-center">
+                                <div class="text-sm text-gray-600">
+                                    <p>📚 Materi pembelajaran informatika untuk SMP</p>
+                                    <p>🎓 Sesuai kurikulum nasional</p>
+                                </div>
+                                <div class="flex space-x-3">
+                                    <button onclick="this.closest('.fixed').remove()" 
+                                            class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-6 py-2 rounded-lg transition-colors">
+                                        Tutup
+                                    </button>
+                                    <button onclick="downloadMaterial('${material.id}'); this.closest('.fixed').remove();" 
+                                            class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg transition-colors">
+                                        📥 Download Materi
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(modal);
+                
+                // Close modal when clicking outside
+                modal.addEventListener('click', function(e) {
+                    if (e.target === modal) {
+                        modal.remove();
+                    }
+                });
+            }
+        }
+
+        function downloadMaterial(materialId) {
+            const material = sampleMaterials.find(m => m.id == materialId);
+            if (material) {
+                showNotification('📥', 'Download', `Mengunduh: ${material.title}`, 'info');
+                
+                // Create downloadable PDF file
+                const blob = new Blob([material.content], { type: 'application/pdf' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = `${material.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                
+                // Log download activity
+                if (studentData) {
+                    const downloadData = {
+                        ...studentData,
+                        materialId: material.id,
+                        materialTitle: material.title,
+                        downloadDate: new Date().toISOString()
+                    };
+                    saveToGoogleSheets(downloadData, 'download_log');
+                }
+            }
+        }
+
+        // Filter materials function
+        function filterMaterials() {
+            const searchTerm = document.getElementById('search-materials').value.toLowerCase();
+            const categoryFilter = document.getElementById('category-filter').value;
+            
+            let filteredMaterials = sampleMaterials.filter(material => {
+                const matchesSearch = material.title.toLowerCase().includes(searchTerm) || 
+                                    material.description.toLowerCase().includes(searchTerm);
+                const matchesCategory = !categoryFilter || material.category === categoryFilter;
+                return matchesSearch && matchesCategory;
+            });
+            
+            displayMaterials(filteredMaterials);
+        }
+
+        function displayMaterials(materials) {
+            const grid = document.getElementById('materials-grid');
+            grid.innerHTML = '';
+            
+            if (materials.length === 0) {
+                grid.innerHTML = `
+                    <div class="col-span-full text-center py-12">
+                        <div class="text-6xl mb-4">📚</div>
+                        <h3 class="text-xl font-semibold text-gray-600 mb-2">Tidak ada materi ditemukan</h3>
+                        <p class="text-gray-500">Coba ubah kata kunci pencarian atau filter kategori</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            materials.forEach(material => {
+                const materialCard = createMaterialCard(material);
+                grid.appendChild(materialCard);
+            });
+        }
+
+        // Assignment Management
+        function loadAssignments() {
+            const select = document.getElementById('assignment-select');
+            select.innerHTML = '<option value="">Pilih tugas yang akan dikumpulkan</option>';
+            
+            sampleAssignments.forEach(assignment => {
+                const option = document.createElement('option');
+                option.value = assignment.id;
+                option.textContent = `${assignment.title} (Deadline: ${assignment.dueDate})`;
+                select.appendChild(option);
+            });
+        }
+
+        // File Upload Management
+        function handleDragOver(e) {
+            e.preventDefault();
+        }
+
+        function handleDragEnter(e) {
+            e.preventDefault();
+            e.currentTarget.classList.add('dragover');
+        }
+
+        function handleDragLeave(e) {
+            if (!e.currentTarget.contains(e.relatedTarget)) {
+                e.currentTarget.classList.remove('dragover');
+            }
+        }
+
+        function handleFileDrop(e) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('dragover');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        }
+
+        function handleFileSelect(e) {
+            const files = e.target.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        }
+
+        function handleFile(file) {
+            // Validate file
+            const maxSize = 10 * 1024 * 1024; // 10MB
+            const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'image/jpeg', 'image/png', 'application/zip'];
+            
+            if (file.size > maxSize) {
+                showNotification('❌', 'Error', 'File terlalu besar! Maksimal 10MB.', 'error');
+                return;
+            }
+            
+            if (!allowedTypes.includes(file.type)) {
+                showNotification('❌', 'Error', 'Tipe file tidak didukung!', 'error');
+                return;
+            }
+
+            selectedFile = file;
+            
+            // Show file info
+            document.getElementById('file-name').textContent = file.name;
+            document.getElementById('file-size').textContent = formatFileSize(file.size);
+            document.getElementById('file-info').classList.remove('hidden');
+            document.getElementById('upload-btn').disabled = false;
+        }
+
+        function removeFile() {
+            selectedFile = null;
+            document.getElementById('file-info').classList.add('hidden');
+            document.getElementById('upload-btn').disabled = true;
+            document.getElementById('file-input').value = '';
+        }
+
+        function uploadAssignment() {
+            if (!studentData) {
+                showNotification('❌', 'Error', 'Mohon isi data siswa terlebih dahulu!', 'error');
+                return;
+            }
+
+            const assignmentId = document.getElementById('assignment-select').value;
+            if (!assignmentId) {
+                showNotification('❌', 'Error', 'Mohon pilih tugas yang akan dikumpulkan!', 'error');
+                return;
+            }
+
+            if (!selectedFile) {
+                showNotification('❌', 'Error', 'Mohon pilih file yang akan diupload!', 'error');
+                return;
+            }
+
+            // Simulate upload process
+            const uploadBtn = document.getElementById('upload-btn');
+            uploadBtn.innerHTML = '<div class="loading inline-block">⏳</div> Uploading...';
+            uploadBtn.disabled = true;
+
+            setTimeout(() => {
+                const assignment = sampleAssignments.find(a => a.id == assignmentId);
+                const uploadData = {
+                    ...studentData,
+                    assignmentId: assignmentId,
+                    assignmentTitle: assignment.title,
+                    fileName: selectedFile.name,
+                    fileSize: selectedFile.size,
+                    uploadDate: new Date().toISOString()
+                };
+
+                // Save to Google Sheets
+                saveToGoogleSheets(uploadData, 'tugas_siswa');
+                
+                // Add to upload history
+                addToUploadHistory(uploadData);
+                
+                // Reset form
+                removeFile();
+                document.getElementById('assignment-select').value = '';
+                uploadBtn.innerHTML = '📤 Upload Tugas';
+                
+                showNotification('✅', 'Berhasil', 'Tugas berhasil diupload!', 'success');
+            }, 2000);
+        }
+
+        function addToUploadHistory(uploadData) {
+            const historyContainer = document.getElementById('upload-history');
+            
+            const historyItem = document.createElement('div');
+            historyItem.className = 'bg-green-50 border border-green-200 rounded-lg p-4';
+            historyItem.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-3">
+                        <div class="text-2xl">✅</div>
+                        <div>
+                            <div class="font-semibold text-gray-800">${uploadData.assignmentTitle}</div>
+                            <div class="text-sm text-gray-600">${uploadData.fileName} (${formatFileSize(uploadData.fileSize)})</div>
+                            <div class="text-xs text-gray-500">Diupload: ${new Date(uploadData.uploadDate).toLocaleString('id-ID')}</div>
+                        </div>
+                    </div>
+                    <div class="text-green-600 font-semibold">Berhasil</div>
+                </div>
+            `;
+            
+            historyContainer.insertBefore(historyItem, historyContainer.firstChild);
+        }
+
+        // Google Sheets Integration (Demo)
+        function saveToGoogleSheets(data, sheetName) {
+            console.log(`Saving to sheet "${sheetName}":`, data);
+            
+            // In real implementation, this would use Google Sheets API
+            // Example endpoint: https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec
+            
+            /*
+            fetch('YOUR_GOOGLE_APPS_SCRIPT_URL', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'saveData',
+                    sheetName: sheetName,
+                    data: data
+                })
+            })
+            .then(response => response.json())
+            .then(result => {
+                console.log('Data saved successfully:', result);
+            })
+            .catch(error => {
+                console.error('Error saving data:', error);
+            });
+            */
+        }
+
+        // Drag & Drop Game Functions
+        function changeCategory() {
+            const select = document.getElementById('category-select');
+            currentCategory = select.value;
+            resetGame();
+            loadCategory(currentCategory);
+        }
+
+        function loadCategory(category) {
+            const material = materials[category];
+            totalQuestions = material.items.length;
+            
+            document.getElementById('items-title').textContent = material.title;
+            loadDragItems(material.items);
+            loadDropZones(material.zones);
+            updateProgress();
+        }
+
+        function loadDragItems(items) {
+            const container = document.getElementById('drag-items');
+            container.innerHTML = '';
+            
+            items.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'drag-item bg-gradient-to-br from-blue-100 to-blue-200 p-4 rounded-xl border-2 border-blue-300 text-center cursor-grab hover:shadow-lg';
+                div.draggable = true;
+                div.dataset.itemId = item.id;
+                div.dataset.target = item.target;
+                
+                div.innerHTML = `
+                    <div class="item-icon">${item.icon}</div>
+                    <div class="font-semibold text-gray-800 text-sm">${item.name}</div>
+                `;
+                
+                div.addEventListener('dragstart', handleDragStart);
+                div.addEventListener('dragend', handleDragEnd);
+                
+                container.appendChild(div);
+            });
+        }
+
+        function loadDropZones(zones) {
+            const container = document.getElementById('drop-zones');
+            container.innerHTML = '';
+            
+            zones.forEach(zone => {
+                const div = document.createElement('div');
+                div.className = 'drop-zone bg-gray-50 rounded-xl p-6 text-center';
+                div.dataset.zoneId = zone.id;
+                
+                div.innerHTML = `
+                    <h3 class="text-lg font-bold text-gray-800 mb-2">${zone.name}</h3>
+                    <p class="text-sm text-gray-600 mb-4">${zone.description}</p>
+                    <div class="text-4xl text-gray-300">📋</div>
+                `;
+                
+                div.addEventListener('dragover', handleDragOver);
+                div.addEventListener('drop', handleDrop);
+                div.addEventListener('dragenter', handleDragEnter);
+                div.addEventListener('dragleave', handleDragLeave);
+                
+                container.appendChild(div);
+            });
+        }
+
+        function handleDragStart(e) {
+            const itemId = e.target.dataset.itemId;
+            const target = e.target.dataset.target;
+            
+            e.dataTransfer.setData('text/plain', JSON.stringify({ itemId, target }));
+            e.target.classList.add('dragging');
+        }
+
+        function handleDragEnd(e) {
+            e.target.classList.remove('dragging');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('drag-over');
+            
+            const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+            const zoneId = e.currentTarget.dataset.zoneId;
+            
+            if (usedItems.has(data.itemId)) {
+                return;
+            }
+            
+            if (data.target === zoneId) {
+                // Correct answer
+                e.currentTarget.classList.add('correct');
+                e.currentTarget.innerHTML = `
+                    <h3 class="text-lg font-bold text-green-800 mb-2">✅ Benar!</h3>
+                    <p class="text-sm text-green-600 mb-4">Jawaban tepat!</p>
+                    <div class="text-4xl text-green-500">✅</div>
+                `;
+                
+                score += 10;
+                correctAnswers++;
+                usedItems.add(data.itemId);
+                
+                const draggedItem = document.querySelector(`[data-item-id="${data.itemId}"]`);
+                if (draggedItem) {
+                    draggedItem.style.opacity = '0.3';
+                    draggedItem.draggable = false;
+                    draggedItem.style.pointerEvents = 'none';
+                }
+                
+                updateScore();
+                updateProgress();
+                
+                if (correctAnswers === totalQuestions) {
+                    setTimeout(() => {
+                        saveGameResult();
+                        showSuccessModal();
+                    }, 1000);
+                }
+                
+                setTimeout(() => {
+                    e.currentTarget.classList.remove('correct');
+                }, 2000);
+                
+            } else {
+                // Incorrect answer
+                e.currentTarget.classList.add('incorrect');
+                setTimeout(() => {
+                    e.currentTarget.classList.remove('incorrect');
+                }, 1000);
+            }
+        }
+
+        function updateScore() {
+            const scoreElement = document.getElementById('score');
+            scoreElement.textContent = score;
+            scoreElement.classList.add('score-animation');
+            
+            setTimeout(() => {
+                scoreElement.classList.remove('score-animation');
+            }, 800);
+        }
+
+        function updateProgress() {
+            document.getElementById('total').textContent = `${correctAnswers}/${totalQuestions}`;
+        }
+
+        function resetGame() {
+            score = 0;
+            correctAnswers = 0;
+            usedItems.clear();
+            gameStartTime = new Date();
+            
+            updateScore();
+            updateProgress();
+            
+            const dropZones = document.querySelectorAll('.drop-zone');
+            dropZones.forEach(zone => {
+                zone.classList.remove('correct', 'incorrect');
+                const zoneData = materials[currentCategory].zones.find(z => z.id === zone.dataset.zoneId);
+                if (zoneData) {
+                    zone.innerHTML = `
+                        <h3 class="text-lg font-bold text-gray-800 mb-2">${zoneData.name}</h3>
+                        <p class="text-sm text-gray-600 mb-4">${zoneData.description}</p>
+                        <div class="text-4xl text-gray-300">📋</div>
+                    `;
+                }
+            });
+            
+            const dragItems = document.querySelectorAll('.drag-item');
+            dragItems.forEach(item => {
+                item.style.opacity = '1';
+                item.draggable = true;
+                item.style.pointerEvents = 'auto';
+            });
+        }
+
+        function saveGameResult() {
+            if (!studentData) return;
+
+            const gameResult = {
+                ...studentData,
+                category: currentCategory,
+                score: score,
+                correctAnswers: correctAnswers,
+                totalQuestions: totalQuestions,
+                accuracy: Math.round((correctAnswers / totalQuestions) * 100),
+                duration: Math.round((new Date() - gameStartTime) / 1000),
+                completedAt: new Date().toISOString()
+            };
+
+            saveToGoogleSheets(gameResult, 'hasil_game');
+        }
+
+        function showSuccessModal() {
+            document.getElementById('final-score').textContent = score;
+            document.getElementById('success-modal').classList.remove('hidden');
+        }
+
+        function closeSuccessModal() {
+            document.getElementById('success-modal').classList.add('hidden');
+        }
+
+        // Utility Functions
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function showNotification(icon, title, message, type) {
+            const notification = document.getElementById('notification');
+            const notificationIcon = document.getElementById('notification-icon');
+            const notificationTitle = document.getElementById('notification-title');
+            const notificationMessage = document.getElementById('notification-message');
+            
+            notificationIcon.textContent = icon;
+            notificationTitle.textContent = title;
+            notificationMessage.textContent = message;
+            
+            // Set border color based on type
+            const borderColors = {
+                success: 'border-green-500',
+                error: 'border-red-500',
+                info: 'border-blue-500'
+            };
+            
+            notification.className = `notification bg-white rounded-lg shadow-lg p-4 border-l-4 ${borderColors[type] || 'border-gray-500'}`;
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 4000);
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('success-modal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeSuccessModal();
+            }
+        });
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'98aa13a337c9ce73',t:'MTc1OTgwNTI3Ny4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
