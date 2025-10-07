@@ -1,0 +1,1371 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Pembelajaran Informatika SMP</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            box-sizing: border-box;
+        }
+        
+        .drag-item {
+            cursor: grab;
+            transition: all 0.3s ease;
+            user-select: none;
+        }
+        
+        .drag-item:hover {
+            transform: translateY(-3px) scale(1.05);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+        }
+        
+        .drag-item.dragging {
+            opacity: 0.6;
+            transform: rotate(5deg) scale(1.1);
+            z-index: 1000;
+        }
+        
+        .drop-zone {
+            min-height: 120px;
+            border: 3px dashed #d1d5db;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        
+        .drop-zone.drag-over {
+            border-color: #10b981;
+            background-color: #ecfdf5;
+            border-style: solid;
+            transform: scale(1.02);
+        }
+        
+        .drop-zone.correct {
+            border-color: #10b981;
+            background-color: #d1fae5;
+            animation: correctPulse 0.6s ease-out;
+        }
+        
+        .drop-zone.incorrect {
+            border-color: #ef4444;
+            background-color: #fee2e2;
+            animation: shake 0.5s ease-out;
+        }
+        
+        @keyframes correctPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+        
+        .item-icon {
+            font-size: 3rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .score-animation {
+            animation: scoreUp 0.8s ease-out;
+        }
+        
+        @keyframes scoreUp {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); color: #10b981; }
+            100% { transform: scale(1); }
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .file-drop-zone {
+            border: 2px dashed #d1d5db;
+            transition: all 0.3s ease;
+        }
+
+        .file-drop-zone.dragover {
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+        }
+
+        .loading {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex justify-between items-center py-4">
+                <div class="flex items-center space-x-4">
+                    <h1 class="text-2xl font-bold text-gray-800">🖥️ Sistem Pembelajaran Informatika</h1>
+                </div>
+                <div class="flex space-x-4">
+                    <button onclick="showTab('materials')" id="tab-materials" class="tab-btn bg-blue-500 text-white px-4 py-2 rounded-lg font-semibold">
+                        📚 Materi Ajar
+                    </button>
+                    <button onclick="showTab('assignments')" id="tab-assignments" class="tab-btn bg-gray-300 text-gray-700 px-4 py-2 rounded-lg font-semibold">
+                        📝 Upload Tugas
+                    </button>
+                    <button onclick="showTab('game')" id="tab-game" class="tab-btn bg-gray-300 text-gray-700 px-4 py-2 rounded-lg font-semibold">
+                        🎮 Drag & Drop
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto p-4">
+        <!-- Student Form (Always visible) -->
+        <div id="student-form" class="bg-white rounded-xl shadow-lg p-6 mb-6">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4 text-center">👤 Data Siswa</h2>
+            <div class="grid md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Nama Lengkap</label>
+                    <input type="text" id="student-name" placeholder="Masukkan nama lengkap" 
+                           class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">NISN</label>
+                    <input type="text" id="student-nisn" placeholder="Masukkan NISN" 
+                           class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Kelas</label>
+                    <select id="student-class" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none">
+                        <option value="">Pilih Kelas</option>
+                        <option value="VII A">VII A</option>
+                        <option value="VII B">VII B</option>
+                        <option value="VII C">VII C</option>
+                        <option value="VIII A">VIII A</option>
+                        <option value="VIII B">VIII B</option>
+                        <option value="VIII C">VIII C</option>
+                        <option value="IX A">IX A</option>
+                        <option value="IX B">IX B</option>
+                        <option value="IX C">IX C</option>
+                    </select>
+                </div>
+            </div>
+            <div class="text-center mt-4">
+                <button onclick="saveStudentData()" 
+                        class="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg font-semibold transition-colors">
+                    💾 Simpan Data Siswa
+                </button>
+            </div>
+            <div id="student-info" class="hidden mt-4 p-4 bg-blue-50 rounded-lg">
+                <p class="text-center text-blue-800">
+                    <strong>Selamat datang, <span id="display-name"></span>!</strong><br>
+                    <small>Kelas: <span id="display-class"></span> | NISN: <span id="display-nisn"></span></small>
+                </p>
+            </div>
+        </div>
+
+        <!-- Materials Tab -->
+        <div id="materials-content" class="tab-content active">
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 space-y-4 md:space-y-0">
+                    <h2 class="text-2xl font-bold text-gray-800">📚 Materi Ajar Informatika</h2>
+                    <div class="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-4">
+                        <input type="text" id="search-materials" placeholder="🔍 Cari materi..." 
+                               class="px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                               onkeyup="filterMaterials()">
+                        <select id="category-filter" onchange="filterMaterials()" 
+                                class="px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none">
+                            <option value="">Semua Kategori</option>
+                            <option value="Hardware">Hardware</option>
+                            <option value="Software">Software</option>
+                            <option value="Jaringan">Jaringan</option>
+                            <option value="Algoritma">Algoritma</option>
+                            <option value="Keamanan">Keamanan</option>
+                        </select>
+                        <button onclick="loadMaterials()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold whitespace-nowrap">
+                            🔄 Refresh Data
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6" id="materials-grid">
+                    <!-- Materials will be loaded here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Assignments Tab -->
+        <div id="assignments-content" class="tab-content">
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">📝 Upload Tugas</h2>
+                
+                <!-- Assignment Selection -->
+                <div class="mb-6">
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Pilih Tugas</label>
+                    <select id="assignment-select" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none">
+                        <option value="">Pilih tugas yang akan dikumpulkan</option>
+                    </select>
+                </div>
+
+                <!-- File Upload Area -->
+                <div class="file-drop-zone bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl p-8 text-center mb-6" 
+                     ondrop="handleFileDrop(event)" ondragover="handleDragOver(event)" ondragenter="handleDragEnter(event)" ondragleave="handleDragLeave(event)">
+                    <div class="text-6xl text-gray-400 mb-4">📁</div>
+                    <h3 class="text-xl font-semibold text-gray-700 mb-2">Drop file di sini atau klik untuk upload</h3>
+                    <p class="text-gray-500 mb-4">Mendukung: PDF, DOC, DOCX, JPG, PNG, ZIP (Max: 10MB)</p>
+                    <input type="file" id="file-input" class="hidden" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.zip" onchange="handleFileSelect(event)">
+                    <button onclick="document.getElementById('file-input').click()" 
+                            class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold">
+                        📎 Pilih File
+                    </button>
+                </div>
+
+                <!-- Selected File Info -->
+                <div id="file-info" class="hidden bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <div class="text-2xl">📄</div>
+                            <div>
+                                <div class="font-semibold text-gray-800" id="file-name"></div>
+                                <div class="text-sm text-gray-600" id="file-size"></div>
+                            </div>
+                        </div>
+                        <button onclick="removeFile()" class="text-red-500 hover:text-red-700">
+                            ❌
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Upload Button -->
+                <div class="text-center">
+                    <button onclick="uploadAssignment()" id="upload-btn" disabled
+                            class="bg-green-500 hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white px-8 py-3 rounded-lg font-semibold text-lg">
+                        📤 Upload Tugas
+                    </button>
+                </div>
+
+                <!-- Upload History -->
+                <div class="mt-8">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">📋 Riwayat Upload</h3>
+                    <div id="upload-history" class="space-y-3">
+                        <!-- Upload history will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Game Tab -->
+        <div id="game-content" class="tab-content">
+            <!-- Game Controls -->
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <div class="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
+                    <div class="flex items-center space-x-4">
+                        <label class="text-lg font-semibold text-gray-700">Pilih Materi:</label>
+                        <select id="category-select" onchange="changeCategory()" 
+                                class="bg-blue-50 border-2 border-blue-200 rounded-lg px-4 py-2 text-lg font-medium focus:outline-none focus:border-blue-500">
+                            <option value="hardware">🔧 Hardware Komputer</option>
+                            <option value="software">💿 Software Komputer</option>
+                            <option value="network">🌐 Jaringan Komputer</option>
+                            <option value="algorithm">🧮 Algoritma & Pemrograman</option>
+                        </select>
+                    </div>
+                    
+                    <div class="flex items-center space-x-4">
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-green-600" id="score">0</div>
+                            <div class="text-sm text-gray-600">Skor</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-blue-600" id="total">0/0</div>
+                            <div class="text-sm text-gray-600">Progress</div>
+                        </div>
+                        <button onclick="resetGame()" 
+                                class="bg-red-500 hover:bg-red-600 text-white px-6 py-2 rounded-lg font-semibold transition-colors">
+                            🔄 Reset
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid lg:grid-cols-12 gap-6">
+                <!-- Left Panel - Drag Items -->
+                <div class="lg:col-span-4">
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">
+                            <span id="items-title">🔧 Komponen Hardware</span>
+                        </h2>
+                        
+                        <div id="drag-items" class="grid grid-cols-2 gap-4">
+                            <!-- Items will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Panel - Drop Zones -->
+                <div class="lg:col-span-8">
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">
+                            <span id="zones-title">🎯 Cocokkan dengan Kategori</span>
+                        </h2>
+                        
+                        <div id="drop-zones" class="grid md:grid-cols-2 gap-6">
+                            <!-- Drop zones will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification -->
+    <div id="notification" class="notification bg-white rounded-lg shadow-lg p-4 border-l-4">
+        <div class="flex items-center space-x-3">
+            <div id="notification-icon" class="text-2xl"></div>
+            <div>
+                <div id="notification-title" class="font-semibold"></div>
+                <div id="notification-message" class="text-sm text-gray-600"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success Modal -->
+    <div id="success-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+        <div class="bg-white rounded-2xl p-8 max-w-md mx-4 text-center">
+            <div class="text-6xl mb-4">🎉</div>
+            <h3 class="text-2xl font-bold text-gray-800 mb-4">Selamat!</h3>
+            <p class="text-gray-600 mb-6">Kamu berhasil menyelesaikan semua soal dengan skor <span id="final-score" class="font-bold text-green-600"></span>!</p>
+            <div class="flex space-x-3 justify-center">
+                <button onclick="closeSuccessModal()" class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-6 py-2 rounded-lg">
+                    Tutup
+                </button>
+                <button onclick="resetGame(); closeSuccessModal();" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg">
+                    Main Lagi
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let currentCategory = 'hardware';
+        let score = 0;
+        let correctAnswers = 0;
+        let totalQuestions = 0;
+        let usedItems = new Set();
+        let studentData = null;
+        let gameStartTime = null;
+        let selectedFile = null;
+
+        // Google Sheets configuration
+        const SHEET_ID = '1RpGjx7rSTpNH4Ndvs7qeeKwo0-lcFzogZxVGHLsXraM';
+        const API_KEY = 'YOUR_API_KEY'; // In real implementation, use proper API key
+
+        // Sample materials data with downloadable content
+        const sampleMaterials = [
+            {
+                id: 1,
+                title: "Pengenalan Hardware Komputer",
+                description: "Materi dasar tentang komponen-komponen hardware komputer seperti CPU, RAM, Storage, dan perangkat input/output",
+                category: "Hardware",
+                type: "PDF",
+                content: generatePDFContent("Hardware Komputer", "Materi tentang komponen hardware komputer"),
+                uploadDate: "2024-01-15",
+                size: "2.5 MB"
+            },
+            {
+                id: 2,
+                title: "Sistem Operasi Windows",
+                description: "Panduan lengkap penggunaan sistem operasi Windows, fitur-fitur utama, dan cara mengoperasikannya",
+                category: "Software",
+                type: "PDF",
+                content: generatePDFContent("Sistem Operasi Windows", "Panduan penggunaan Windows untuk pemula"),
+                uploadDate: "2024-01-16",
+                size: "3.2 MB"
+            },
+            {
+                id: 3,
+                title: "Jaringan Komputer Dasar",
+                description: "Konsep dasar jaringan komputer, topologi jaringan, dan cara kerja internet",
+                category: "Jaringan",
+                type: "PDF",
+                content: generatePDFContent("Jaringan Komputer", "Dasar-dasar jaringan komputer dan internet"),
+                uploadDate: "2024-01-17",
+                size: "4.1 MB"
+            },
+            {
+                id: 4,
+                title: "Algoritma Pemrograman",
+                description: "Dasar-dasar algoritma, flowchart, pseudocode, dan logika pemrograman",
+                category: "Algoritma",
+                type: "PDF",
+                content: generatePDFContent("Algoritma Pemrograman", "Konsep dasar algoritma dan pemrograman"),
+                uploadDate: "2024-01-18",
+                size: "3.8 MB"
+            },
+            {
+                id: 5,
+                title: "Microsoft Office Word",
+                description: "Tutorial lengkap penggunaan Microsoft Word untuk membuat dokumen, formatting, dan fitur lanjutan",
+                category: "Software",
+                type: "PDF",
+                content: generatePDFContent("Microsoft Word", "Tutorial lengkap Microsoft Word"),
+                uploadDate: "2024-01-19",
+                size: "5.2 MB"
+            },
+            {
+                id: 6,
+                title: "Keamanan Cyber",
+                description: "Pentingnya keamanan dalam dunia digital, jenis-jenis ancaman, dan cara melindungi diri",
+                category: "Keamanan",
+                type: "PDF",
+                content: generatePDFContent("Keamanan Cyber", "Panduan keamanan digital untuk siswa"),
+                uploadDate: "2024-01-20",
+                size: "2.9 MB"
+            },
+            {
+                id: 7,
+                title: "Pengenalan Internet",
+                description: "Sejarah internet, cara kerja web, browser, dan etika berinternet yang baik",
+                category: "Jaringan",
+                type: "PDF",
+                content: generatePDFContent("Pengenalan Internet", "Dasar-dasar internet dan world wide web"),
+                uploadDate: "2024-01-21",
+                size: "3.5 MB"
+            },
+            {
+                id: 8,
+                title: "Aplikasi Spreadsheet",
+                description: "Penggunaan aplikasi spreadsheet seperti Excel untuk perhitungan dan analisis data",
+                category: "Software",
+                type: "PDF",
+                content: generatePDFContent("Aplikasi Spreadsheet", "Tutorial Excel dan aplikasi spreadsheet"),
+                uploadDate: "2024-01-22",
+                size: "4.7 MB"
+            },
+            {
+                id: 9,
+                title: "Presentasi Digital",
+                description: "Cara membuat presentasi yang menarik menggunakan PowerPoint dan aplikasi sejenis",
+                category: "Software",
+                type: "PDF",
+                content: generatePDFContent("Presentasi Digital", "Panduan membuat presentasi yang efektif"),
+                uploadDate: "2024-01-23",
+                size: "6.1 MB"
+            },
+            {
+                id: 10,
+                title: "Etika Digital",
+                description: "Norma dan etika dalam menggunakan teknologi digital dan media sosial",
+                category: "Keamanan",
+                type: "PDF",
+                content: generatePDFContent("Etika Digital", "Panduan berperilaku baik di dunia digital"),
+                uploadDate: "2024-01-24",
+                size: "2.3 MB"
+            },
+            {
+                id: 11,
+                title: "Pemrograman Scratch",
+                description: "Pengenalan pemrograman visual menggunakan Scratch untuk membuat game dan animasi",
+                category: "Algoritma",
+                type: "PDF",
+                content: generatePDFContent("Pemrograman Scratch", "Tutorial Scratch untuk pemula"),
+                uploadDate: "2024-01-25",
+                size: "7.2 MB"
+            },
+            {
+                id: 12,
+                title: "Multimedia Digital",
+                description: "Pengenalan multimedia, editing foto, video, dan audio menggunakan software gratis",
+                category: "Software",
+                type: "PDF",
+                content: generatePDFContent("Multimedia Digital", "Dasar-dasar multimedia dan editing"),
+                uploadDate: "2024-01-26",
+                size: "8.5 MB"
+            }
+        ];
+
+        // Sample assignments data
+        const sampleAssignments = [
+            {
+                id: 1,
+                title: "Tugas 1: Identifikasi Hardware",
+                description: "Buat laporan tentang komponen hardware komputer",
+                dueDate: "2024-02-15",
+                category: "Hardware"
+            },
+            {
+                id: 2,
+                title: "Tugas 2: Instalasi Software",
+                description: "Dokumentasi proses instalasi software",
+                dueDate: "2024-02-20",
+                category: "Software"
+            },
+            {
+                id: 3,
+                title: "Tugas 3: Konfigurasi Jaringan",
+                description: "Praktik konfigurasi jaringan sederhana",
+                dueDate: "2024-02-25",
+                category: "Jaringan"
+            },
+            {
+                id: 4,
+                title: "Tugas 4: Membuat Algoritma",
+                description: "Buat flowchart dan pseudocode sederhana",
+                dueDate: "2024-03-01",
+                category: "Algoritma"
+            }
+        ];
+
+        // Drag & Drop game materials
+        const materials = {
+            hardware: {
+                title: '🔧 Komponen Hardware',
+                items: [
+                    { id: 'cpu', name: 'CPU', icon: '🧠', target: 'processor' },
+                    { id: 'ram', name: 'RAM', icon: '💾', target: 'memory' },
+                    { id: 'hdd', name: 'Hard Disk', icon: '💿', target: 'storage' },
+                    { id: 'ssd', name: 'SSD', icon: '⚡', target: 'storage' },
+                    { id: 'gpu', name: 'GPU', icon: '🎮', target: 'graphics' },
+                    { id: 'motherboard', name: 'Motherboard', icon: '🔌', target: 'mainboard' },
+                    { id: 'psu', name: 'Power Supply', icon: '🔋', target: 'power' },
+                    { id: 'monitor', name: 'Monitor', icon: '🖥️', target: 'output' }
+                ],
+                zones: [
+                    { id: 'processor', name: 'Processor', description: 'Otak komputer untuk pemrosesan' },
+                    { id: 'memory', name: 'Memori', description: 'Penyimpanan data sementara' },
+                    { id: 'storage', name: 'Penyimpanan', description: 'Penyimpanan data permanen' },
+                    { id: 'graphics', name: 'Grafis', description: 'Pemroses tampilan visual' },
+                    { id: 'mainboard', name: 'Papan Utama', description: 'Penghubung semua komponen' },
+                    { id: 'power', name: 'Daya', description: 'Sumber tenaga listrik' },
+                    { id: 'output', name: 'Output Device', description: 'Perangkat keluaran data' }
+                ]
+            },
+            software: {
+                title: '💿 Jenis Software',
+                items: [
+                    { id: 'windows', name: 'Windows', icon: '🪟', target: 'os' },
+                    { id: 'word', name: 'MS Word', icon: '📝', target: 'office' },
+                    { id: 'photoshop', name: 'Photoshop', icon: '🎨', target: 'graphics' },
+                    { id: 'chrome', name: 'Chrome', icon: '🌐', target: 'browser' },
+                    { id: 'antivirus', name: 'Antivirus', icon: '🛡️', target: 'security' },
+                    { id: 'game', name: 'Game', icon: '🎮', target: 'entertainment' }
+                ],
+                zones: [
+                    { id: 'os', name: 'Sistem Operasi', description: 'Mengelola komputer' },
+                    { id: 'office', name: 'Aplikasi Perkantoran', description: 'Untuk bekerja' },
+                    { id: 'graphics', name: 'Aplikasi Grafis', description: 'Edit gambar/video' },
+                    { id: 'browser', name: 'Web Browser', description: 'Akses internet' },
+                    { id: 'security', name: 'Keamanan', description: 'Melindungi komputer' },
+                    { id: 'entertainment', name: 'Hiburan', description: 'Game dan multimedia' }
+                ]
+            },
+            network: {
+                title: '🌐 Komponen Jaringan',
+                items: [
+                    { id: 'router', name: 'Router', icon: '📡', target: 'routing' },
+                    { id: 'switch', name: 'Switch', icon: '🔀', target: 'switching' },
+                    { id: 'cable', name: 'Kabel UTP', icon: '🔌', target: 'transmission' },
+                    { id: 'wifi', name: 'WiFi', icon: '📶', target: 'wireless' },
+                    { id: 'server', name: 'Server', icon: '🖥️', target: 'hosting' },
+                    { id: 'modem', name: 'Modem', icon: '📞', target: 'connection' }
+                ],
+                zones: [
+                    { id: 'routing', name: 'Routing', description: 'Mengarahkan data antar jaringan' },
+                    { id: 'switching', name: 'Switching', description: 'Menghubungkan perangkat lokal' },
+                    { id: 'transmission', name: 'Media Transmisi', description: 'Media pengiriman data' },
+                    { id: 'wireless', name: 'Teknologi Nirkabel', description: 'Komunikasi tanpa kabel' },
+                    { id: 'hosting', name: 'Server & Hosting', description: 'Penyedia layanan data' },
+                    { id: 'connection', name: 'Koneksi Internet', description: 'Akses ke internet' }
+                ]
+            },
+            algorithm: {
+                title: '🧮 Konsep Algoritma',
+                items: [
+                    { id: 'input', name: 'Input', icon: '📥', target: 'data-input' },
+                    { id: 'process', name: 'Proses', icon: '⚙️', target: 'processing' },
+                    { id: 'output', name: 'Output', icon: '📤', target: 'data-output' },
+                    { id: 'loop', name: 'Perulangan', icon: '🔄', target: 'iteration' },
+                    { id: 'condition', name: 'Kondisi', icon: '❓', target: 'decision' },
+                    { id: 'variable', name: 'Variabel', icon: '📊', target: 'storage' }
+                ],
+                zones: [
+                    { id: 'data-input', name: 'Input Data', description: 'Memasukkan data ke program' },
+                    { id: 'processing', name: 'Pemrosesan', description: 'Mengolah dan menghitung data' },
+                    { id: 'data-output', name: 'Output Data', description: 'Menampilkan hasil program' },
+                    { id: 'iteration', name: 'Iterasi', description: 'Mengulang proses tertentu' },
+                    { id: 'decision', name: 'Keputusan', description: 'Percabangan logika program' },
+                    { id: 'storage', name: 'Penyimpanan', description: 'Menyimpan nilai dalam program' }
+                ]
+            }
+        };
+
+        // PDF Content Generator
+        function generatePDFContent(title, subtitle) {
+            const content = `%PDF-1.4
+1 0 obj
+<<
+/Type /Catalog
+/Pages 2 0 R
+>>
+endobj
+
+2 0 obj
+<<
+/Type /Pages
+/Kids [3 0 R]
+/Count 1
+>>
+endobj
+
+3 0 obj
+<<
+/Type /Page
+/Parent 2 0 R
+/MediaBox [0 0 612 792]
+/Contents 4 0 R
+/Resources <<
+/Font <<
+/F1 5 0 R
+>>
+>>
+>>
+endobj
+
+4 0 obj
+<<
+/Length 200
+>>
+stream
+BT
+/F1 24 Tf
+50 750 Td
+(${title}) Tj
+0 -50 Td
+/F1 16 Tf
+(${subtitle}) Tj
+0 -100 Td
+/F1 12 Tf
+(Materi Pembelajaran Informatika SMP) Tj
+0 -30 Td
+(Disusun untuk siswa kelas VII, VIII, dan IX) Tj
+0 -50 Td
+(Topik Pembahasan:) Tj
+0 -20 Td
+(- Konsep dasar dan teori) Tj
+0 -20 Td
+(- Praktik dan latihan) Tj
+0 -20 Td
+(- Contoh kasus nyata) Tj
+0 -20 Td
+(- Evaluasi dan assessment) Tj
+ET
+endstream
+endobj
+
+5 0 obj
+<<
+/Type /Font
+/Subtype /Type1
+/BaseFont /Helvetica
+>>
+endobj
+
+xref
+0 6
+0000000000 65535 f 
+0000000010 00000 n 
+0000000079 00000 n 
+0000000173 00000 n 
+0000000301 00000 n 
+0000000380 00000 n 
+trailer
+<<
+/Size 6
+/Root 1 0 R
+>>
+startxref
+456
+%%EOF`;
+            return content;
+        }
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            loadMaterials();
+            loadAssignments();
+            loadCategory(currentCategory);
+        });
+
+        // Tab Management
+        function showTab(tabName) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Remove active class from all tab buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('bg-blue-500', 'text-white');
+                btn.classList.add('bg-gray-300', 'text-gray-700');
+            });
+            
+            // Show selected tab content
+            document.getElementById(tabName + '-content').classList.add('active');
+            
+            // Activate selected tab button
+            const activeBtn = document.getElementById('tab-' + tabName);
+            activeBtn.classList.remove('bg-gray-300', 'text-gray-700');
+            activeBtn.classList.add('bg-blue-500', 'text-white');
+        }
+
+        // Student Data Management
+        function saveStudentData() {
+            const name = document.getElementById('student-name').value.trim();
+            const nisn = document.getElementById('student-nisn').value.trim();
+            const studentClass = document.getElementById('student-class').value;
+
+            if (!name || !nisn || !studentClass) {
+                showNotification('❌', 'Error', 'Mohon lengkapi semua data siswa!', 'error');
+                return;
+            }
+
+            studentData = {
+                name: name,
+                nisn: nisn,
+                class: studentClass,
+                timestamp: new Date().toISOString()
+            };
+
+            // Display student info
+            document.getElementById('display-name').textContent = name;
+            document.getElementById('display-class').textContent = studentClass;
+            document.getElementById('display-nisn').textContent = nisn;
+            document.getElementById('student-info').classList.remove('hidden');
+
+            // Save to Google Sheets (Demo)
+            saveToGoogleSheets(studentData, 'biodata_siswa');
+            
+            showNotification('✅', 'Berhasil', 'Data siswa berhasil disimpan!', 'success');
+        }
+
+        // Materials Management
+        function loadMaterials() {
+            const grid = document.getElementById('materials-grid');
+            grid.innerHTML = '<div class="col-span-full text-center py-8"><div class="loading text-4xl">⏳</div><p class="mt-2">Memuat materi dari database...</p></div>';
+
+            // Simulate loading from Google Sheets
+            setTimeout(() => {
+                displayMaterials(sampleMaterials);
+                showNotification('✅', 'Berhasil', `${sampleMaterials.length} materi berhasil dimuat!`, 'success');
+            }, 1500);
+        }
+
+        function createMaterialCard(material) {
+            const card = document.createElement('div');
+            card.className = 'bg-gradient-to-br from-blue-50 to-indigo-100 rounded-xl p-6 border border-blue-200 hover:shadow-xl hover:scale-105 transition-all duration-300';
+            
+            const typeIcon = {
+                'PDF': '📄',
+                'Video': '🎥',
+                'PPT': '📊'
+            };
+
+            const categoryColors = {
+                'Hardware': 'bg-red-500',
+                'Software': 'bg-green-500',
+                'Jaringan': 'bg-blue-500',
+                'Algoritma': 'bg-purple-500',
+                'Keamanan': 'bg-orange-500'
+            };
+
+            card.innerHTML = `
+                <div class="flex items-start justify-between mb-4">
+                    <div class="text-4xl">${typeIcon[material.type] || '📄'}</div>
+                    <span class="${categoryColors[material.category] || 'bg-gray-500'} text-white text-xs px-3 py-1 rounded-full font-semibold">
+                        ${material.category}
+                    </span>
+                </div>
+                <h3 class="font-bold text-gray-800 mb-3 text-lg leading-tight">${material.title}</h3>
+                <p class="text-sm text-gray-600 mb-4 line-clamp-3">${material.description}</p>
+                <div class="flex justify-between items-center text-xs text-gray-500 mb-4 bg-white bg-opacity-50 rounded-lg p-2">
+                    <span class="flex items-center">📅 ${new Date(material.uploadDate).toLocaleDateString('id-ID')}</span>
+                    <span class="flex items-center">📦 ${material.size}</span>
+                </div>
+                <div class="flex space-x-2">
+                    <button onclick="previewMaterial('${material.id}')" 
+                            class="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-2 rounded-lg font-semibold transition-colors text-sm">
+                        👁️ Preview
+                    </button>
+                    <button onclick="downloadMaterial('${material.id}')" 
+                            class="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-2 rounded-lg font-semibold transition-colors text-sm">
+                        📥 Download
+                    </button>
+                </div>
+            `;
+            
+            return card;
+        }
+
+        function previewMaterial(materialId) {
+            const material = sampleMaterials.find(m => m.id == materialId);
+            if (material) {
+                showNotification('👁️', 'Preview', `Menampilkan preview: ${material.title}`, 'info');
+                
+                // Create a simple preview modal
+                const modal = document.createElement('div');
+                modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4';
+                modal.innerHTML = `
+                    <div class="bg-white rounded-2xl p-8 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+                        <div class="flex justify-between items-start mb-6">
+                            <div>
+                                <h2 class="text-2xl font-bold text-gray-800 mb-2">${material.title}</h2>
+                                <p class="text-gray-600">${material.description}</p>
+                            </div>
+                            <button onclick="this.parentElement.parentElement.parentElement.remove()" 
+                                    class="text-gray-500 hover:text-gray-700 text-2xl">×</button>
+                        </div>
+                        <div class="bg-gray-50 rounded-lg p-6 mb-6">
+                            <h3 class="font-semibold text-gray-800 mb-4">📋 Ringkasan Materi:</h3>
+                            <ul class="space-y-2 text-gray-700">
+                                <li>• Konsep dasar dan teori fundamental</li>
+                                <li>• Praktik dan latihan interaktif</li>
+                                <li>• Contoh kasus nyata dan aplikasi</li>
+                                <li>• Evaluasi dan assessment pembelajaran</li>
+                                <li>• Referensi dan sumber belajar tambahan</li>
+                            </ul>
+                        </div>
+                        <div class="flex justify-center space-x-4">
+                            <button onclick="this.parentElement.parentElement.parentElement.remove()" 
+                                    class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-6 py-2 rounded-lg">
+                                Tutup
+                            </button>
+                            <button onclick="downloadMaterial('${material.id}'); this.parentElement.parentElement.parentElement.remove();" 
+                                    class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg">
+                                📥 Download Sekarang
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(modal);
+                
+                // Close modal when clicking outside
+                modal.addEventListener('click', function(e) {
+                    if (e.target === modal) {
+                        modal.remove();
+                    }
+                });
+            }
+        }
+
+        function downloadMaterial(materialId) {
+            const material = sampleMaterials.find(m => m.id == materialId);
+            if (material) {
+                showNotification('📥', 'Download', `Mengunduh: ${material.title}`, 'info');
+                
+                // Create downloadable PDF file
+                const blob = new Blob([material.content], { type: 'application/pdf' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = `${material.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                
+                // Log download activity
+                if (studentData) {
+                    const downloadData = {
+                        ...studentData,
+                        materialId: material.id,
+                        materialTitle: material.title,
+                        downloadDate: new Date().toISOString()
+                    };
+                    saveToGoogleSheets(downloadData, 'download_log');
+                }
+            }
+        }
+
+        // Filter materials function
+        function filterMaterials() {
+            const searchTerm = document.getElementById('search-materials').value.toLowerCase();
+            const categoryFilter = document.getElementById('category-filter').value;
+            
+            let filteredMaterials = sampleMaterials.filter(material => {
+                const matchesSearch = material.title.toLowerCase().includes(searchTerm) || 
+                                    material.description.toLowerCase().includes(searchTerm);
+                const matchesCategory = !categoryFilter || material.category === categoryFilter;
+                return matchesSearch && matchesCategory;
+            });
+            
+            displayMaterials(filteredMaterials);
+        }
+
+        function displayMaterials(materials) {
+            const grid = document.getElementById('materials-grid');
+            grid.innerHTML = '';
+            
+            if (materials.length === 0) {
+                grid.innerHTML = `
+                    <div class="col-span-full text-center py-12">
+                        <div class="text-6xl mb-4">📚</div>
+                        <h3 class="text-xl font-semibold text-gray-600 mb-2">Tidak ada materi ditemukan</h3>
+                        <p class="text-gray-500">Coba ubah kata kunci pencarian atau filter kategori</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            materials.forEach(material => {
+                const materialCard = createMaterialCard(material);
+                grid.appendChild(materialCard);
+            });
+        }
+
+        // Assignment Management
+        function loadAssignments() {
+            const select = document.getElementById('assignment-select');
+            select.innerHTML = '<option value="">Pilih tugas yang akan dikumpulkan</option>';
+            
+            sampleAssignments.forEach(assignment => {
+                const option = document.createElement('option');
+                option.value = assignment.id;
+                option.textContent = `${assignment.title} (Deadline: ${assignment.dueDate})`;
+                select.appendChild(option);
+            });
+        }
+
+        // File Upload Management
+        function handleDragOver(e) {
+            e.preventDefault();
+        }
+
+        function handleDragEnter(e) {
+            e.preventDefault();
+            e.currentTarget.classList.add('dragover');
+        }
+
+        function handleDragLeave(e) {
+            if (!e.currentTarget.contains(e.relatedTarget)) {
+                e.currentTarget.classList.remove('dragover');
+            }
+        }
+
+        function handleFileDrop(e) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('dragover');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        }
+
+        function handleFileSelect(e) {
+            const files = e.target.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        }
+
+        function handleFile(file) {
+            // Validate file
+            const maxSize = 10 * 1024 * 1024; // 10MB
+            const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'image/jpeg', 'image/png', 'application/zip'];
+            
+            if (file.size > maxSize) {
+                showNotification('❌', 'Error', 'File terlalu besar! Maksimal 10MB.', 'error');
+                return;
+            }
+            
+            if (!allowedTypes.includes(file.type)) {
+                showNotification('❌', 'Error', 'Tipe file tidak didukung!', 'error');
+                return;
+            }
+
+            selectedFile = file;
+            
+            // Show file info
+            document.getElementById('file-name').textContent = file.name;
+            document.getElementById('file-size').textContent = formatFileSize(file.size);
+            document.getElementById('file-info').classList.remove('hidden');
+            document.getElementById('upload-btn').disabled = false;
+        }
+
+        function removeFile() {
+            selectedFile = null;
+            document.getElementById('file-info').classList.add('hidden');
+            document.getElementById('upload-btn').disabled = true;
+            document.getElementById('file-input').value = '';
+        }
+
+        function uploadAssignment() {
+            if (!studentData) {
+                showNotification('❌', 'Error', 'Mohon isi data siswa terlebih dahulu!', 'error');
+                return;
+            }
+
+            const assignmentId = document.getElementById('assignment-select').value;
+            if (!assignmentId) {
+                showNotification('❌', 'Error', 'Mohon pilih tugas yang akan dikumpulkan!', 'error');
+                return;
+            }
+
+            if (!selectedFile) {
+                showNotification('❌', 'Error', 'Mohon pilih file yang akan diupload!', 'error');
+                return;
+            }
+
+            // Simulate upload process
+            const uploadBtn = document.getElementById('upload-btn');
+            uploadBtn.innerHTML = '<div class="loading inline-block">⏳</div> Uploading...';
+            uploadBtn.disabled = true;
+
+            setTimeout(() => {
+                const assignment = sampleAssignments.find(a => a.id == assignmentId);
+                const uploadData = {
+                    ...studentData,
+                    assignmentId: assignmentId,
+                    assignmentTitle: assignment.title,
+                    fileName: selectedFile.name,
+                    fileSize: selectedFile.size,
+                    uploadDate: new Date().toISOString()
+                };
+
+                // Save to Google Sheets
+                saveToGoogleSheets(uploadData, 'tugas_siswa');
+                
+                // Add to upload history
+                addToUploadHistory(uploadData);
+                
+                // Reset form
+                removeFile();
+                document.getElementById('assignment-select').value = '';
+                uploadBtn.innerHTML = '📤 Upload Tugas';
+                
+                showNotification('✅', 'Berhasil', 'Tugas berhasil diupload!', 'success');
+            }, 2000);
+        }
+
+        function addToUploadHistory(uploadData) {
+            const historyContainer = document.getElementById('upload-history');
+            
+            const historyItem = document.createElement('div');
+            historyItem.className = 'bg-green-50 border border-green-200 rounded-lg p-4';
+            historyItem.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-3">
+                        <div class="text-2xl">✅</div>
+                        <div>
+                            <div class="font-semibold text-gray-800">${uploadData.assignmentTitle}</div>
+                            <div class="text-sm text-gray-600">${uploadData.fileName} (${formatFileSize(uploadData.fileSize)})</div>
+                            <div class="text-xs text-gray-500">Diupload: ${new Date(uploadData.uploadDate).toLocaleString('id-ID')}</div>
+                        </div>
+                    </div>
+                    <div class="text-green-600 font-semibold">Berhasil</div>
+                </div>
+            `;
+            
+            historyContainer.insertBefore(historyItem, historyContainer.firstChild);
+        }
+
+        // Google Sheets Integration (Demo)
+        function saveToGoogleSheets(data, sheetName) {
+            console.log(`Saving to sheet "${sheetName}":`, data);
+            
+            // In real implementation, this would use Google Sheets API
+            // Example endpoint: https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec
+            
+            /*
+            fetch('YOUR_GOOGLE_APPS_SCRIPT_URL', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'saveData',
+                    sheetName: sheetName,
+                    data: data
+                })
+            })
+            .then(response => response.json())
+            .then(result => {
+                console.log('Data saved successfully:', result);
+            })
+            .catch(error => {
+                console.error('Error saving data:', error);
+            });
+            */
+        }
+
+        // Drag & Drop Game Functions
+        function changeCategory() {
+            const select = document.getElementById('category-select');
+            currentCategory = select.value;
+            resetGame();
+            loadCategory(currentCategory);
+        }
+
+        function loadCategory(category) {
+            const material = materials[category];
+            totalQuestions = material.items.length;
+            
+            document.getElementById('items-title').textContent = material.title;
+            loadDragItems(material.items);
+            loadDropZones(material.zones);
+            updateProgress();
+        }
+
+        function loadDragItems(items) {
+            const container = document.getElementById('drag-items');
+            container.innerHTML = '';
+            
+            items.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'drag-item bg-gradient-to-br from-blue-100 to-blue-200 p-4 rounded-xl border-2 border-blue-300 text-center cursor-grab hover:shadow-lg';
+                div.draggable = true;
+                div.dataset.itemId = item.id;
+                div.dataset.target = item.target;
+                
+                div.innerHTML = `
+                    <div class="item-icon">${item.icon}</div>
+                    <div class="font-semibold text-gray-800 text-sm">${item.name}</div>
+                `;
+                
+                div.addEventListener('dragstart', handleDragStart);
+                div.addEventListener('dragend', handleDragEnd);
+                
+                container.appendChild(div);
+            });
+        }
+
+        function loadDropZones(zones) {
+            const container = document.getElementById('drop-zones');
+            container.innerHTML = '';
+            
+            zones.forEach(zone => {
+                const div = document.createElement('div');
+                div.className = 'drop-zone bg-gray-50 rounded-xl p-6 text-center';
+                div.dataset.zoneId = zone.id;
+                
+                div.innerHTML = `
+                    <h3 class="text-lg font-bold text-gray-800 mb-2">${zone.name}</h3>
+                    <p class="text-sm text-gray-600 mb-4">${zone.description}</p>
+                    <div class="text-4xl text-gray-300">📋</div>
+                `;
+                
+                div.addEventListener('dragover', handleDragOver);
+                div.addEventListener('drop', handleDrop);
+                div.addEventListener('dragenter', handleDragEnter);
+                div.addEventListener('dragleave', handleDragLeave);
+                
+                container.appendChild(div);
+            });
+        }
+
+        function handleDragStart(e) {
+            const itemId = e.target.dataset.itemId;
+            const target = e.target.dataset.target;
+            
+            e.dataTransfer.setData('text/plain', JSON.stringify({ itemId, target }));
+            e.target.classList.add('dragging');
+        }
+
+        function handleDragEnd(e) {
+            e.target.classList.remove('dragging');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('drag-over');
+            
+            const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+            const zoneId = e.currentTarget.dataset.zoneId;
+            
+            if (usedItems.has(data.itemId)) {
+                return;
+            }
+            
+            if (data.target === zoneId) {
+                // Correct answer
+                e.currentTarget.classList.add('correct');
+                e.currentTarget.innerHTML = `
+                    <h3 class="text-lg font-bold text-green-800 mb-2">✅ Benar!</h3>
+                    <p class="text-sm text-green-600 mb-4">Jawaban tepat!</p>
+                    <div class="text-4xl text-green-500">✅</div>
+                `;
+                
+                score += 10;
+                correctAnswers++;
+                usedItems.add(data.itemId);
+                
+                const draggedItem = document.querySelector(`[data-item-id="${data.itemId}"]`);
+                if (draggedItem) {
+                    draggedItem.style.opacity = '0.3';
+                    draggedItem.draggable = false;
+                    draggedItem.style.pointerEvents = 'none';
+                }
+                
+                updateScore();
+                updateProgress();
+                
+                if (correctAnswers === totalQuestions) {
+                    setTimeout(() => {
+                        saveGameResult();
+                        showSuccessModal();
+                    }, 1000);
+                }
+                
+                setTimeout(() => {
+                    e.currentTarget.classList.remove('correct');
+                }, 2000);
+                
+            } else {
+                // Incorrect answer
+                e.currentTarget.classList.add('incorrect');
+                setTimeout(() => {
+                    e.currentTarget.classList.remove('incorrect');
+                }, 1000);
+            }
+        }
+
+        function updateScore() {
+            const scoreElement = document.getElementById('score');
+            scoreElement.textContent = score;
+            scoreElement.classList.add('score-animation');
+            
+            setTimeout(() => {
+                scoreElement.classList.remove('score-animation');
+            }, 800);
+        }
+
+        function updateProgress() {
+            document.getElementById('total').textContent = `${correctAnswers}/${totalQuestions}`;
+        }
+
+        function resetGame() {
+            score = 0;
+            correctAnswers = 0;
+            usedItems.clear();
+            gameStartTime = new Date();
+            
+            updateScore();
+            updateProgress();
+            
+            const dropZones = document.querySelectorAll('.drop-zone');
+            dropZones.forEach(zone => {
+                zone.classList.remove('correct', 'incorrect');
+                const zoneData = materials[currentCategory].zones.find(z => z.id === zone.dataset.zoneId);
+                if (zoneData) {
+                    zone.innerHTML = `
+                        <h3 class="text-lg font-bold text-gray-800 mb-2">${zoneData.name}</h3>
+                        <p class="text-sm text-gray-600 mb-4">${zoneData.description}</p>
+                        <div class="text-4xl text-gray-300">📋</div>
+                    `;
+                }
+            });
+            
+            const dragItems = document.querySelectorAll('.drag-item');
+            dragItems.forEach(item => {
+                item.style.opacity = '1';
+                item.draggable = true;
+                item.style.pointerEvents = 'auto';
+            });
+        }
+
+        function saveGameResult() {
+            if (!studentData) return;
+
+            const gameResult = {
+                ...studentData,
+                category: currentCategory,
+                score: score,
+                correctAnswers: correctAnswers,
+                totalQuestions: totalQuestions,
+                accuracy: Math.round((correctAnswers / totalQuestions) * 100),
+                duration: Math.round((new Date() - gameStartTime) / 1000),
+                completedAt: new Date().toISOString()
+            };
+
+            saveToGoogleSheets(gameResult, 'hasil_game');
+        }
+
+        function showSuccessModal() {
+            document.getElementById('final-score').textContent = score;
+            document.getElementById('success-modal').classList.remove('hidden');
+        }
+
+        function closeSuccessModal() {
+            document.getElementById('success-modal').classList.add('hidden');
+        }
+
+        // Utility Functions
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function showNotification(icon, title, message, type) {
+            const notification = document.getElementById('notification');
+            const notificationIcon = document.getElementById('notification-icon');
+            const notificationTitle = document.getElementById('notification-title');
+            const notificationMessage = document.getElementById('notification-message');
+            
+            notificationIcon.textContent = icon;
+            notificationTitle.textContent = title;
+            notificationMessage.textContent = message;
+            
+            // Set border color based on type
+            const borderColors = {
+                success: 'border-green-500',
+                error: 'border-red-500',
+                info: 'border-blue-500'
+            };
+            
+            notification.className = `notification bg-white rounded-lg shadow-lg p-4 border-l-4 ${borderColors[type] || 'border-gray-500'}`;
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 4000);
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('success-modal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeSuccessModal();
+            }
+        });
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'98aa0744b3a2fd9e',t:'MTc1OTgwNDc3MC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
